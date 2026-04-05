@@ -85,6 +85,10 @@ namespace NativeCal.Services
             if (endDate <= startDate)
                 return new List<CalendarEvent>();
 
+            HashSet<int> visibleCalendarIds = await GetVisibleCalendarIdsAsync();
+            if (visibleCalendarIds.Count == 0)
+                return new List<CalendarEvent>();
+
             var timedEvents = await _db.Table<CalendarEvent>()
                 .Where(e =>
                     !e.IsAllDay &&
@@ -102,6 +106,7 @@ namespace NativeCal.Services
 
             return timedEvents
                 .Concat(overlappingAllDayEvents)
+                .Where(e => visibleCalendarIds.Contains(e.CalendarId))
                 .OrderBy(e => e.StartTime)
                 .ThenBy(e => e.Id)
                 .ToList();
@@ -195,6 +200,15 @@ namespace NativeCal.Services
         public async Task<List<CalendarInfo>> GetCalendarsAsync()
         {
             return await _db.Table<CalendarInfo>().ToListAsync();
+        }
+
+        private async Task<HashSet<int>> GetVisibleCalendarIdsAsync()
+        {
+            var calendars = await _db.Table<CalendarInfo>()
+                .Where(c => c.IsVisible)
+                .ToListAsync();
+
+            return calendars.Select(c => c.Id).ToHashSet();
         }
 
         /// <summary>

@@ -41,6 +41,57 @@ public class DatabaseServiceRegressionTests : TestBase
     }
 
     [Fact]
+    public async Task GetEventsAsync_ExcludesEventsFromHiddenCalendars()
+    {
+        var calendars = await Db.GetCalendarsAsync();
+        var hiddenCalendar = Assert.Single(calendars.Where(c => !c.IsDefault).Take(1));
+        hiddenCalendar.IsVisible = false;
+        await Db.SaveCalendarAsync(hiddenCalendar);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Visible event",
+            StartTime = new DateTime(2026, 4, 5, 9, 0, 0),
+            EndTime = new DateTime(2026, 4, 5, 10, 0, 0),
+            CalendarId = calendars[0].Id
+        });
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Hidden event",
+            StartTime = new DateTime(2026, 4, 5, 11, 0, 0),
+            EndTime = new DateTime(2026, 4, 5, 12, 0, 0),
+            CalendarId = hiddenCalendar.Id
+        });
+
+        var events = await Db.GetEventsAsync(new DateTime(2026, 4, 5), new DateTime(2026, 4, 6));
+
+        var match = Assert.Single(events);
+        Assert.Equal("Visible event", match.Title);
+    }
+
+    [Fact]
+    public async Task GetEventsForDateAsync_ExcludesAllDayEventsFromHiddenCalendars()
+    {
+        var calendars = await Db.GetCalendarsAsync();
+        var hiddenCalendar = Assert.Single(calendars.Where(c => !c.IsDefault).Take(1));
+        hiddenCalendar.IsVisible = false;
+        await Db.SaveCalendarAsync(hiddenCalendar);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Hidden all-day",
+            StartTime = new DateTime(2026, 4, 5),
+            EndTime = new DateTime(2026, 4, 5, 23, 59, 59),
+            IsAllDay = true,
+            CalendarId = hiddenCalendar.Id
+        });
+
+        var events = await Db.GetEventsForDateAsync(new DateTime(2026, 4, 5));
+
+        Assert.Empty(events);
+    }
+
+    [Fact]
     public async Task SearchEventsAsync_TreatsPercentUnderscoreAndBackslashAsLiteralCharacters()
     {
         await Db.SaveEventAsync(new CalendarEvent

@@ -31,6 +31,29 @@ public class MonthViewModelTests : TestBase
     }
 
     [Fact]
+    public async Task LoadMonthCommand_DoesNotShowEventsFromHiddenCalendars()
+    {
+        var calendars = await Db.GetCalendarsAsync();
+        var hiddenCalendar = Assert.Single(calendars.Where(c => !c.IsDefault).Take(1));
+        hiddenCalendar.IsVisible = false;
+        await Db.SaveCalendarAsync(hiddenCalendar);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Should stay hidden",
+            StartTime = new DateTime(2026, 4, 5, 9, 0, 0),
+            EndTime = new DateTime(2026, 4, 5, 10, 0, 0),
+            CalendarId = hiddenCalendar.Id
+        });
+
+        var viewModel = new MonthViewModel();
+
+        await viewModel.LoadMonthCommand.ExecuteAsync(new DateTime(2026, 4, 1));
+
+        Assert.DoesNotContain(GetCell(viewModel, new DateTime(2026, 4, 5)).Events, e => e.Title == "Should stay hidden");
+    }
+
+    [Fact]
     public async Task LoadMonthCommand_OrdersAllDayBeforeTimedEventsThenByStartTime()
     {
         await Db.SaveEventAsync(new CalendarEvent
