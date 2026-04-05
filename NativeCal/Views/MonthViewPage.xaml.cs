@@ -369,11 +369,14 @@ public sealed partial class MonthViewPage : Page
     /// </summary>
     private void CellBorder_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        if (IsEventChipInteractionSource(e.OriginalSource as DependencyObject))
+            return;
+
         if (sender is Border border && border.Tag is int index && index >= 0 && index < TotalCells)
         {
             DateTime clickedDate = _cellDates[index];
 
-            // Navigate the main window to day view for the clicked date
+            // Navigate the main window to day view for that date
             if (App.MainAppWindow is MainWindow mainWindow)
             {
                 mainWindow.NavigateToDayView(clickedDate);
@@ -426,11 +429,12 @@ public sealed partial class MonthViewPage : Page
 
         try
         {
+            _suppressChipTap = _activeChipDrag.HasMoved;
+
             if (_activeChipDrag.HasMoved && TryGetCellDate(e.GetCurrentPoint(LayoutRoot).Position, out var targetDate) && targetDate.Date != _activeChipDrag.SourceDate.Date)
             {
                 var updated = CalendarEventMutationHelper.MoveEventToDate(_activeChipDrag.Event.ToModel(), targetDate);
                 await App.Database.SaveEventAsync(updated);
-                _suppressChipTap = true;
                 App.MainAppWindow?.RefreshCurrentViewData();
             }
         }
@@ -500,6 +504,20 @@ public sealed partial class MonthViewPage : Page
         }
 
         cellDate = default;
+        return false;
+    }
+
+    private static bool IsEventChipInteractionSource(DependencyObject? source)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is FrameworkElement element && element.Tag is CalendarEventViewModel)
+                return true;
+
+            current = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current);
+        }
+
         return false;
     }
 

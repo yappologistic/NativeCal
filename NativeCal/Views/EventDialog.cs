@@ -272,8 +272,11 @@ public static class EventDialog
     private static async Task<(ContentDialog dialog, Func<CalendarEvent> getResult)> BuildEventDialog(
         XamlRoot xamlRoot, CalendarEvent? existing, DateTime? defaultDate)
     {
-        // Load calendars from the database
+        // Load calendars from the database and keep official holiday calendars read-only.
         var calendars = await App.Database.GetCalendarsAsync();
+        var selectableCalendars = calendars
+            .Where(c => !CalendarCatalogHelper.IsProtectedCalendar(c))
+            .ToList();
 
         // Determine initial date/time values
         DateTime startTime;
@@ -469,9 +472,9 @@ public static class EventDialog
         int selectedCalendarIndex = -1;
         int defaultCalendarIndex = -1;
 
-        for (int i = 0; i < calendars.Count; i++)
+        for (int i = 0; i < selectableCalendars.Count; i++)
         {
-            var cal = calendars[i];
+            var cal = selectableCalendars[i];
             var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             var circle = new Ellipse
             {
@@ -502,7 +505,7 @@ public static class EventDialog
 
         if (selectedCalendarIndex < 0)
         {
-            selectedCalendarIndex = defaultCalendarIndex >= 0 ? defaultCalendarIndex : (calendars.Count > 0 ? 0 : -1);
+            selectedCalendarIndex = defaultCalendarIndex >= 0 ? defaultCalendarIndex : (selectableCalendars.Count > 0 ? 0 : -1);
         }
 
         calendarCombo.SelectedIndex = selectedCalendarIndex;
@@ -709,7 +712,7 @@ public static class EventDialog
         void UpdatePrimaryButtonState()
         {
             bool hasTitle = !string.IsNullOrWhiteSpace(titleBox.Text);
-            bool hasCalendar = calendars.Count > 0;
+            bool hasCalendar = selectableCalendars.Count > 0;
             dialog.IsPrimaryButtonEnabled = hasTitle && hasCalendar;
         }
 
@@ -745,14 +748,14 @@ public static class EventDialog
             }
 
             int calendarId = 0;
-            if (calendarCombo.SelectedIndex >= 0 && calendarCombo.SelectedIndex < calendars.Count)
+            if (calendarCombo.SelectedIndex >= 0 && calendarCombo.SelectedIndex < selectableCalendars.Count)
             {
-                calendarId = calendars[calendarCombo.SelectedIndex].Id;
+                calendarId = selectableCalendars[calendarCombo.SelectedIndex].Id;
             }
             else
             {
-                calendarId = calendars.FirstOrDefault(c => c.IsDefault)?.Id
-                    ?? calendars.FirstOrDefault()?.Id
+                calendarId = selectableCalendars.FirstOrDefault(c => c.IsDefault)?.Id
+                    ?? selectableCalendars.FirstOrDefault()?.Id
                     ?? 0;
             }
 

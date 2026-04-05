@@ -637,9 +637,16 @@ public sealed partial class WeekViewPage : Page
     {
         try
         {
-            if (!state.HasMoved || !TryGetDateTimeFromWeekPoint(pointerPosition, out var dateTime))
+            if (!state.HasMoved)
                 return;
 
+            DateTime dateTime;
+            bool hasDateTime = isResize
+                ? TryGetResizeDateTime(pointerPosition, state, out dateTime)
+                : TryGetDateTimeFromWeekPoint(pointerPosition, out dateTime);
+
+            if (!hasDateTime)
+                return;
             CalendarEvent updated = isResize
                 ? CalendarEventMutationHelper.ResizeTimedEvent(state.Event.ToModel(), dateTime)
                 : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), dateTime);
@@ -683,10 +690,21 @@ public sealed partial class WeekViewPage : Page
             return false;
         }
 
-        double y = Math.Clamp(point.Y, 0, HoursInDay * HourHeight - (HourHeight / 4));
-        double minutes = Math.Round(y / (HourHeight / 60.0 * CalendarEventMutationHelper.DefaultIncrementMinutes)) * CalendarEventMutationHelper.DefaultIncrementMinutes;
-        result = ViewModel.WeekStart.AddDays(dayIndex).Date.AddMinutes(minutes);
+        result = GetSnappedDateTime(ViewModel.WeekStart.AddDays(dayIndex).Date, point.Y);
         return true;
+    }
+
+    private static bool TryGetResizeDateTime(Windows.Foundation.Point point, EventInteractionState state, out DateTime result)
+    {
+        result = GetSnappedDateTime(state.OriginalStart.Date, point.Y);
+        return true;
+    }
+
+    private static DateTime GetSnappedDateTime(DateTime day, double y)
+    {
+        double clampedY = Math.Clamp(y, 0, HoursInDay * HourHeight - (HourHeight / 4));
+        double minutes = Math.Round(clampedY / (HourHeight / 60.0 * CalendarEventMutationHelper.DefaultIncrementMinutes)) * CalendarEventMutationHelper.DefaultIncrementMinutes;
+        return day.Date.AddMinutes(minutes);
     }
 
     /// <summary>
