@@ -157,7 +157,8 @@ public static class EventDialog
         {
             Header = "Start date",
             Date = new DateTimeOffset(startTime.Date),
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinWidth = 220
         };
 
         var startTimePicker = new TimePicker
@@ -165,14 +166,16 @@ public static class EventDialog
             Header = "Start time",
             Time = startTime.TimeOfDay,
             MinuteIncrement = 5,
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinWidth = 120
         };
 
         var endDatePicker = new DatePicker
         {
             Header = "End date",
             Date = new DateTimeOffset(endTime.Date),
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinWidth = 220
         };
 
         var endTimePicker = new TimePicker
@@ -180,7 +183,8 @@ public static class EventDialog
             Header = "End time",
             Time = endTime.TimeOfDay,
             MinuteIncrement = 5,
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinWidth = 120
         };
 
         // Non-all-day grid: 2 rows, 2 columns (date + time)
@@ -188,7 +192,7 @@ public static class EventDialog
         {
             ColumnDefinitions =
             {
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) },
                 new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
             },
             RowDefinitions =
@@ -197,7 +201,8 @@ public static class EventDialog
                 new RowDefinition { Height = GridLength.Auto }
             },
             ColumnSpacing = 12,
-            RowSpacing = 8
+            RowSpacing = 8,
+            MinWidth = 360
         };
 
         Grid.SetRow(startDatePicker, 0);
@@ -214,15 +219,16 @@ public static class EventDialog
         dateTimeGrid.Children.Add(endDatePicker);
         dateTimeGrid.Children.Add(endTimePicker);
 
-        // All-day grid: 1 row, 2 columns (start date + end date)
+        // All-day grid: stack the two date pickers vertically so the full year stays visible.
         var allDayGrid = new Grid
         {
-            ColumnDefinitions =
+            RowDefinitions =
             {
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+                new RowDefinition { Height = GridLength.Auto },
+                new RowDefinition { Height = GridLength.Auto }
             },
-            ColumnSpacing = 12
+            RowSpacing = 8,
+            MinWidth = 300
         };
 
         var allDayStartDatePicker = new DatePicker
@@ -239,8 +245,8 @@ public static class EventDialog
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
 
-        Grid.SetColumn(allDayStartDatePicker, 0);
-        Grid.SetColumn(allDayEndDatePicker, 1);
+        Grid.SetRow(allDayStartDatePicker, 0);
+        Grid.SetRow(allDayEndDatePicker, 1);
 
         allDayGrid.Children.Add(allDayStartDatePicker);
         allDayGrid.Children.Add(allDayEndDatePicker);
@@ -480,7 +486,7 @@ public static class EventDialog
         var contentPanel = new StackPanel
         {
             Spacing = 16,
-            MinWidth = 360
+            MinWidth = 440
         };
 
         contentPanel.Children.Add(titleBox);
