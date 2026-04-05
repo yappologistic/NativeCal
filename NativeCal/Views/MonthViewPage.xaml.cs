@@ -29,6 +29,17 @@ public sealed partial class MonthViewPage : Page
 
     // Track which date each cell represents so click handlers work
     private readonly DateTime[] _cellDates = new DateTime[TotalCells];
+    private ChipDragState? _activeChipDrag;
+    private bool _suppressChipTap;
+
+    private sealed class ChipDragState
+    {
+        public required Border Chip { get; init; }
+        public required CalendarEventViewModel Event { get; init; }
+        public required DateTime SourceDate { get; init; }
+        public required Windows.Foundation.Point StartPoint { get; init; }
+        public bool HasMoved { get; set; }
+    }
 
     public MonthViewPage()
     {
@@ -283,7 +294,7 @@ public sealed partial class MonthViewPage : Page
             for (int j = 0; j < visibleCount; j++)
             {
                 CalendarEventViewModel evt = cell.Events[j];
-                _eventPanels[i].Children.Add(CreateEventChip(evt));
+                _eventPanels[i].Children.Add(CreateEventChip(evt, cell.Date));
             }
 
             // -- "+N more" indicator --
@@ -303,7 +314,7 @@ public sealed partial class MonthViewPage : Page
     /// <summary>
     /// Creates a single event chip: a small colored rounded rectangle with the event title.
     /// </summary>
-    private static Border CreateEventChip(CalendarEventViewModel evt)
+    private Border CreateEventChip(CalendarEventViewModel evt, DateTime cellDate)
     {
         string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
@@ -336,10 +347,19 @@ public sealed partial class MonthViewPage : Page
             Margin = new Thickness(0, 1, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Child = titleText,
-            Tag = evt // store the event so we can retrieve it on click
+            Tag = evt
         };
 
-        chip.PointerPressed += EventChip_PointerPressed;
+        if (!evt.IsReadOnly)
+        {
+            chip.PointerPressed += EventChip_PointerPressed;
+            chip.PointerMoved += EventChip_PointerMoved;
+            chip.PointerReleased += EventChip_PointerReleased;
+            chip.PointerCaptureLost += EventChip_PointerCaptureLost;
+        }
+
+        chip.Tapped += EventChip_Tapped;
+        chip.DataContext = cellDate;
 
         return chip;
     }
@@ -361,12 +381,89 @@ public sealed partial class MonthViewPage : Page
         }
     }
 
-    /// <summary>
-    /// Handles click on an event chip - shows event details in a dialog.
-    /// </summary>
-    private static async void EventChip_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private void EventChip_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        e.Handled = true; // prevent the cell click from also firing
+        if (sender is not Border chip || chip.Tag is not CalendarEventViewModel evt || chip.DataContext is not DateTime sourceDate)
+            return;
+
+        _activeChipDrag = new ChipDragState
+        {
+            Chip = chip,
+            Event = evt,
+            SourceDate = sourceDate,
+            StartPoint = e.GetCurrentPoint(LayoutRoot).Position
+        };
+
+        chip.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void EventChip_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeChipDrag is null || sender is not Border chip)
+            return;
+
+        var currentPoint = e.GetCurrentPoint(LayoutRoot).Position;
+        double deltaX = currentPoint.X - _activeChipDrag.StartPoint.X;
+        double deltaY = currentPoint.Y - _activeChipDrag.StartPoint.Y;
+
+        if (Math.Abs(deltaX) > 3 || Math.Abs(deltaY) > 3)
+        {
+            _activeChipDrag.HasMoved = true;
+            chip.Opacity = 0.65;
+            chip.RenderTransform = new TranslateTransform { X = deltaX, Y = deltaY };
+        }
+
+        e.Handled = true;
+    }
+
+    private async void EventChip_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeChipDrag is null || sender is not Border chip)
+            return;
+
+        chip.ReleasePointerCaptures();
+
+        try
+        {
+            if (_activeChipDrag.HasMoved && TryGetCellDate(e.GetCurrentPoint(LayoutRoot).Position, out var targetDate) && targetDate.Date != _activeChipDrag.SourceDate.Date)
+            {
+                var updated = CalendarEventMutationHelper.MoveEventToDate(_activeChipDrag.Event.ToModel(), targetDate);
+                await App.Database.SaveEventAsync(updated);
+                _suppressChipTap = true;
+                App.MainAppWindow?.RefreshCurrentViewData();
+            }
+        }
+        finally
+        {
+            chip.Opacity = 1.0;
+            chip.RenderTransform = null;
+            _activeChipDrag = null;
+        }
+
+        e.Handled = true;
+    }
+
+    private void EventChip_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Border chip)
+        {
+            chip.Opacity = 1.0;
+            chip.RenderTransform = null;
+        }
+
+        _activeChipDrag = null;
+    }
+
+    private async void EventChip_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        if (_suppressChipTap)
+        {
+            _suppressChipTap = false;
+            return;
+        }
 
         if (sender is not Border chip || chip.Tag is not CalendarEventViewModel evt)
             return;
@@ -383,6 +480,27 @@ public sealed partial class MonthViewPage : Page
             await App.Database.DeleteEventAsync(evt.Id);
             App.MainAppWindow?.RefreshCurrentViewData();
         }
+    }
+
+    private bool TryGetCellDate(Windows.Foundation.Point point, out DateTime cellDate)
+    {
+        for (int i = 0; i < TotalCells; i++)
+        {
+            var border = _cellBorders[i];
+            if (border.ActualWidth <= 0 || border.ActualHeight <= 0)
+                continue;
+
+            var origin = border.TransformToVisual(LayoutRoot).TransformPoint(new Windows.Foundation.Point(0, 0));
+            if (point.X >= origin.X && point.X <= origin.X + border.ActualWidth &&
+                point.Y >= origin.Y && point.Y <= origin.Y + border.ActualHeight)
+            {
+                cellDate = _cellDates[i];
+                return true;
+            }
+        }
+
+        cellDate = default;
+        return false;
     }
 
     /// <summary>

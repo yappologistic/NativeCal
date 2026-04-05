@@ -40,6 +40,21 @@ public sealed partial class WeekViewPage : Page
     private Line _nowIndicator = null!;
 
     private bool _isBuilt;
+    private EventInteractionState? _activeInteraction;
+
+    private sealed class EventInteractionState
+    {
+        public required CalendarEventViewModel Event { get; init; }
+        public required Border EventBorder { get; init; }
+        public required UIElement HandleElement { get; init; }
+        public required DateTime OriginalStart { get; init; }
+        public required DateTime OriginalEnd { get; init; }
+        public required double OriginalHeight { get; init; }
+        public Transform? OriginalTransform { get; init; }
+        public required Windows.Foundation.Point StartPoint { get; init; }
+        public bool IsResizing { get; init; }
+        public bool HasMoved { get; set; }
+    }
 
     public WeekViewPage()
     {
@@ -307,9 +322,27 @@ public sealed partial class WeekViewPage : Page
 
             // ── Timed events ──
             _dayCanvases[i].Children.Clear();
-            foreach (CalendarEventViewModel evt in col.Events)
+
+            var placements = EventLayoutHelper.CalculateOverlapPlacements(col.Events);
+            double canvasWidth = _dayCanvases[i].ActualWidth;
+            if (canvasWidth <= 0)
             {
-                var block = CreateTimedEventBlock(evt);
+                canvasWidth = TimeGrid.ActualWidth / (DaysInWeek + 1);
+                if (canvasWidth <= 0)
+                    canvasWidth = 140;
+            }
+
+            foreach (var placement in placements)
+            {
+                double topOffset = (placement.Event.StartTime.Hour * 60 + placement.Event.StartTime.Minute) * (HourHeight / 60.0);
+                double durationMinutes = (placement.Event.EndTime - placement.Event.StartTime).TotalMinutes;
+                double blockHeight = Math.Max(durationMinutes * (HourHeight / 60.0), 20.0);
+                double columnWidth = Math.Max((canvasWidth - 6) / placement.TotalColumns, 24);
+                double left = placement.ColumnIndex * columnWidth;
+
+                var block = CreateTimedEventBlock(placement.Event, columnWidth - 4, blockHeight);
+                Canvas.SetLeft(block, left);
+                Canvas.SetTop(block, topOffset);
                 _dayCanvases[i].Children.Add(block);
             }
         }
@@ -348,7 +381,7 @@ public sealed partial class WeekViewPage : Page
             Tag = evt
         };
 
-        chip.PointerPressed += EventBlock_PointerPressed;
+        chip.Tapped += EventBlock_Tapped;
         return chip;
     }
 
@@ -356,7 +389,7 @@ public sealed partial class WeekViewPage : Page
     /// Creates a positioned event block for the time-grid Canvas.
     /// The block's Top offset and Height are derived from the event's start time and duration.
     /// </summary>
-    private Border CreateTimedEventBlock(CalendarEventViewModel evt)
+    private Border CreateTimedEventBlock(CalendarEventViewModel evt, double width, double blockHeight)
     {
         string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
@@ -364,11 +397,6 @@ public sealed partial class WeekViewPage : Page
         SolidColorBrush bgBrush;
         try { bgBrush = ColorHelper.ToBrush(colorHex); }
         catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }
-
-        // Calculate position and size
-        double topOffset = (evt.StartTime.Hour * 60 + evt.StartTime.Minute) * (HourHeight / 60.0);
-        double durationMinutes = (evt.EndTime - evt.StartTime).TotalMinutes;
-        double blockHeight = Math.Max(durationMinutes * (HourHeight / 60.0), 20.0);
 
         var titleText = new TextBlock
         {
@@ -390,50 +418,77 @@ public sealed partial class WeekViewPage : Page
             MaxLines = 1
         };
 
+        var dragHandle = new Border
+        {
+            Height = 6,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
+            CornerRadius = new CornerRadius(4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible
+        };
+
+        var resizeHandle = new Border
+        {
+            Height = 6,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(60, 255, 255, 255)),
+            CornerRadius = new CornerRadius(4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Visibility = evt.IsReadOnly || evt.IsAllDay ? Visibility.Collapsed : Visibility.Visible
+        };
+
         var content = new StackPanel
         {
             Spacing = 1
         };
         content.Children.Add(titleText);
 
-        // Only show time text if the block is tall enough
         if (blockHeight >= 36)
         {
             content.Children.Add(timeText);
         }
+
+        var layout = new Grid
+        {
+            RowDefinitions =
+            {
+                new RowDefinition { Height = GridLength.Auto },
+                new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
+                new RowDefinition { Height = GridLength.Auto }
+            }
+        };
+        Grid.SetRow(dragHandle, 0);
+        Grid.SetRow(content, 1);
+        Grid.SetRow(resizeHandle, 2);
+        layout.Children.Add(dragHandle);
+        layout.Children.Add(content);
+        layout.Children.Add(resizeHandle);
 
         var block = new Border
         {
             CornerRadius = new CornerRadius(4),
             Background = bgBrush,
             Padding = new Thickness(6, 4, 6, 4),
-            Margin = new Thickness(2, 0, 4, 0),
+            Margin = new Thickness(2, 0, 2, 0),
             Height = blockHeight,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Tag = evt
+            Width = Math.Max(width, 20),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Tag = evt,
+            Child = layout
         };
 
-        // Stretch the block to fill the canvas column width
-        block.Width = double.NaN; // auto
+        dragHandle.Tag = block;
+        dragHandle.PointerPressed += EventDragHandle_PointerPressed;
+        dragHandle.PointerMoved += EventDragHandle_PointerMoved;
+        dragHandle.PointerReleased += EventDragHandle_PointerReleased;
+        dragHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
 
-        // We use the SizeChanged event on the canvas to set the block width
-        // For now, set a binding-like approach: use the Loaded event
-        block.Child = content;
+        resizeHandle.Tag = block;
+        resizeHandle.PointerPressed += EventResizeHandle_PointerPressed;
+        resizeHandle.PointerMoved += EventResizeHandle_PointerMoved;
+        resizeHandle.PointerReleased += EventResizeHandle_PointerReleased;
+        resizeHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
 
-        Canvas.SetTop(block, topOffset);
-        Canvas.SetLeft(block, 0);
-
-        // We need to stretch blocks to fill the canvas. We do this by listening
-        // to the canvas SizeChanged and updating block widths.
-        block.Loaded += (s, e) =>
-        {
-            if (s is Border b && b.Parent is Canvas parentCanvas)
-            {
-                b.Width = Math.Max(parentCanvas.ActualWidth - 6, 20);
-            }
-        };
-
-        block.PointerPressed += EventBlock_PointerPressed;
+        block.Tapped += EventBlock_Tapped;
         return block;
     }
 
@@ -475,10 +530,169 @@ public sealed partial class WeekViewPage : Page
 
     // ── Event interaction ──────────────────────────────────────────────
 
+    private void EventDragHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+            return;
+
+        _activeInteraction = new EventInteractionState
+        {
+            Event = evt,
+            EventBorder = border,
+            HandleElement = handle,
+            OriginalStart = evt.StartTime,
+            OriginalEnd = evt.EndTime,
+            OriginalHeight = border.Height,
+            OriginalTransform = border.RenderTransform,
+            StartPoint = e.GetCurrentPoint(TimeGrid).Position,
+            IsResizing = false
+        };
+
+        handle.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void EventDragHandle_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || _activeInteraction.IsResizing)
+            return;
+
+        var currentPoint = e.GetCurrentPoint(TimeGrid).Position;
+        var transform = new TranslateTransform
+        {
+            X = currentPoint.X - _activeInteraction.StartPoint.X,
+            Y = currentPoint.Y - _activeInteraction.StartPoint.Y
+        };
+        _activeInteraction.EventBorder.RenderTransform = transform;
+        _activeInteraction.EventBorder.Opacity = 0.85;
+        _activeInteraction.HasMoved = Math.Abs(transform.X) >= 1 || Math.Abs(transform.Y) >= 1;
+        e.Handled = true;
+    }
+
+    private async void EventDragHandle_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || _activeInteraction.IsResizing || sender is not FrameworkElement handle)
+            return;
+
+        handle.ReleasePointerCaptures();
+        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(TimeGrid).Position, false);
+        e.Handled = true;
+    }
+
+    private void EventResizeHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+            return;
+
+        _activeInteraction = new EventInteractionState
+        {
+            Event = evt,
+            EventBorder = border,
+            HandleElement = handle,
+            OriginalStart = evt.StartTime,
+            OriginalEnd = evt.EndTime,
+            OriginalHeight = border.Height,
+            OriginalTransform = border.RenderTransform,
+            StartPoint = e.GetCurrentPoint(TimeGrid).Position,
+            IsResizing = true
+        };
+
+        handle.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void EventResizeHandle_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || !_activeInteraction.IsResizing)
+            return;
+
+        var currentPoint = e.GetCurrentPoint(TimeGrid).Position;
+        double deltaY = currentPoint.Y - _activeInteraction.StartPoint.Y;
+        _activeInteraction.EventBorder.Height = Math.Max(_activeInteraction.OriginalHeight + deltaY, HourHeight / 4);
+        _activeInteraction.EventBorder.Opacity = 0.85;
+        _activeInteraction.HasMoved = Math.Abs(deltaY) >= 1;
+        e.Handled = true;
+    }
+
+    private async void EventResizeHandle_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || !_activeInteraction.IsResizing || sender is not FrameworkElement handle)
+            return;
+
+        handle.ReleasePointerCaptures();
+        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(TimeGrid).Position, true);
+        e.Handled = true;
+    }
+
+    private void EventInteraction_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null)
+            return;
+
+        ResetInteractionVisual(_activeInteraction);
+        _activeInteraction = null;
+    }
+
+    private async Task CompleteTimedInteractionAsync(EventInteractionState state, Windows.Foundation.Point pointerPosition, bool isResize)
+    {
+        try
+        {
+            if (!state.HasMoved || !TryGetDateTimeFromWeekPoint(pointerPosition, out var dateTime))
+                return;
+
+            CalendarEvent updated = isResize
+                ? CalendarEventMutationHelper.ResizeTimedEvent(state.Event.ToModel(), dateTime)
+                : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), dateTime);
+
+            await App.Database.SaveEventAsync(updated);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
+        finally
+        {
+            ResetInteractionVisual(state);
+            _activeInteraction = null;
+        }
+    }
+
+    private void ResetInteractionVisual(EventInteractionState state)
+    {
+        state.EventBorder.Opacity = 1.0;
+        state.EventBorder.Height = state.OriginalHeight;
+        state.EventBorder.RenderTransform = state.OriginalTransform;
+    }
+
+    private bool TryGetDateTimeFromWeekPoint(Windows.Foundation.Point point, out DateTime result)
+    {
+        int dayIndex = -1;
+        for (int i = 0; i < _dayCanvases.Length; i++)
+        {
+            if (_dayCanvases[i] is not FrameworkElement canvas || canvas.ActualWidth <= 0)
+                continue;
+
+            var origin = canvas.TransformToVisual(TimeGrid).TransformPoint(new Windows.Foundation.Point(0, 0));
+            if (point.X >= origin.X && point.X <= origin.X + canvas.ActualWidth)
+            {
+                dayIndex = i;
+                break;
+            }
+        }
+
+        if (dayIndex < 0)
+        {
+            result = default;
+            return false;
+        }
+
+        double y = Math.Clamp(point.Y, 0, HoursInDay * HourHeight - (HourHeight / 4));
+        double minutes = Math.Round(y / (HourHeight / 60.0 * CalendarEventMutationHelper.DefaultIncrementMinutes)) * CalendarEventMutationHelper.DefaultIncrementMinutes;
+        result = ViewModel.WeekStart.AddDays(dayIndex).Date.AddMinutes(minutes);
+        return true;
+    }
+
     /// <summary>
     /// Shows a detail dialog when an event block or all-day chip is clicked.
     /// </summary>
-    private static async void EventBlock_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private static async void EventBlock_Tapped(object sender, TappedRoutedEventArgs e)
     {
         e.Handled = true;
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -22,6 +23,20 @@ public sealed partial class DayViewPage : Page
     private const int TotalHours = 24;
     private Canvas _eventCanvas = null!;
     private readonly DispatcherTimer _timeIndicatorTimer;
+    private EventInteractionState? _activeInteraction;
+
+    private sealed class EventInteractionState
+    {
+        public required CalendarEventViewModel Event { get; init; }
+        public required Border EventBorder { get; init; }
+        public required UIElement HandleElement { get; init; }
+        public required DateTime OriginalStart { get; init; }
+        public required DateTime OriginalEnd { get; init; }
+        public required double OriginalTop { get; init; }
+        public required double OriginalHeight { get; init; }
+        public bool IsResizing { get; init; }
+        public bool HasMoved { get; set; }
+    }
 
     public DayViewModel ViewModel { get; } = new DayViewModel();
 
@@ -228,7 +243,7 @@ public sealed partial class DayViewPage : Page
             return;
 
         // Detect overlapping events and assign columns
-        var placements = CalculateOverlapColumns(events);
+        var placements = EventLayoutHelper.CalculateOverlapPlacements(events);
 
         // We need the canvas to have rendered at least once to know its width.
         // Use ActualWidth of the TimeGrid's second column as a fallback.
@@ -251,7 +266,7 @@ public sealed partial class DayViewPage : Page
             double columnWidth = (canvasWidth - 8) / placement.TotalColumns; // 8px right margin
             double left = placement.ColumnIndex * columnWidth + 4; // 4px left margin
 
-            var block = CreateEventBlock(evt, columnWidth - 2, height);
+            var block = CreateEventBlock(evt, columnWidth - 2, height, top);
             Canvas.SetLeft(block, left);
             Canvas.SetTop(block, top);
             _eventCanvas.Children.Add(block);
@@ -261,7 +276,7 @@ public sealed partial class DayViewPage : Page
         _eventCanvas.IsHitTestVisible = true;
     }
 
-    private Border CreateEventBlock(CalendarEventViewModel evt, double width, double height)
+    private Border CreateEventBlock(CalendarEventViewModel evt, double width, double height, double top)
     {
         string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
@@ -288,6 +303,25 @@ public sealed partial class DayViewPage : Page
             MaxLines = 1
         };
 
+        var dragHandle = new Border
+        {
+            Height = 6,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
+            CornerRadius = new CornerRadius(4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible
+        };
+
+        var resizeHandle = new Border
+        {
+            Height = 6,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(60, 255, 255, 255)),
+            CornerRadius = new CornerRadius(4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Visibility = evt.IsReadOnly || evt.IsAllDay ? Visibility.Collapsed : Visibility.Visible
+        };
+
         var stack = new StackPanel
         {
             Spacing = 1
@@ -298,6 +332,23 @@ public sealed partial class DayViewPage : Page
             stack.Children.Add(timeBlock);
         }
 
+        var layout = new Grid
+        {
+            RowDefinitions =
+            {
+                new RowDefinition { Height = GridLength.Auto },
+                new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
+                new RowDefinition { Height = GridLength.Auto }
+            }
+        };
+
+        Grid.SetRow(dragHandle, 0);
+        Grid.SetRow(stack, 1);
+        Grid.SetRow(resizeHandle, 2);
+        layout.Children.Add(dragHandle);
+        layout.Children.Add(stack);
+        layout.Children.Add(resizeHandle);
+
         var border = new Border
         {
             Background = bgBrush,
@@ -306,94 +357,167 @@ public sealed partial class DayViewPage : Page
             Width = width,
             Height = height,
             Tag = evt,
-            IsHitTestVisible = true
+            IsHitTestVisible = true,
+            Child = layout
         };
-        border.Child = stack;
+
+        dragHandle.PointerPressed += EventDragHandle_PointerPressed;
+        dragHandle.PointerMoved += EventDragHandle_PointerMoved;
+        dragHandle.PointerReleased += EventDragHandle_PointerReleased;
+        dragHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+        dragHandle.Tag = border;
+
+        resizeHandle.PointerPressed += EventResizeHandle_PointerPressed;
+        resizeHandle.PointerMoved += EventResizeHandle_PointerMoved;
+        resizeHandle.PointerReleased += EventResizeHandle_PointerReleased;
+        resizeHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+        resizeHandle.Tag = border;
+
         border.Tapped += EventBlock_Click;
+        Canvas.SetTop(border, top);
         return border;
     }
 
-    private struct EventPlacement
+    private void EventDragHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        public CalendarEventViewModel Event;
-        public int ColumnIndex;
-        public int TotalColumns;
+        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+            return;
+
+        _activeInteraction = new EventInteractionState
+        {
+            Event = evt,
+            EventBorder = border,
+            HandleElement = handle,
+            OriginalStart = evt.StartTime,
+            OriginalEnd = evt.EndTime,
+            OriginalTop = Canvas.GetTop(border),
+            OriginalHeight = border.Height,
+            IsResizing = false
+        };
+
+        handle.CapturePointer(e.Pointer);
+        e.Handled = true;
     }
 
-    private static List<EventPlacement> CalculateOverlapColumns(List<CalendarEventViewModel> events)
+    private void EventDragHandle_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (events.Count == 0)
-            return new List<EventPlacement>();
+        if (_activeInteraction is null || _activeInteraction.IsResizing || sender is not FrameworkElement handle)
+            return;
 
-        var sorted = events.OrderBy(e => e.StartTime).ThenBy(e => e.EndTime).ToList();
-        var placements = new List<EventPlacement>();
+        var point = e.GetCurrentPoint(_eventCanvas).Position;
+        double snappedTop = SnapCanvasY(point.Y);
+        _activeInteraction.EventBorder.Opacity = 0.85;
+        Canvas.SetTop(_activeInteraction.EventBorder, snappedTop);
+        _activeInteraction.HasMoved = Math.Abs(snappedTop - _activeInteraction.OriginalTop) >= 1;
+        e.Handled = true;
+    }
 
-        // Group overlapping events into clusters
-        var clusters = new List<List<CalendarEventViewModel>>();
-        List<CalendarEventViewModel>? currentCluster = null;
-        DateTime clusterEnd = DateTime.MinValue;
+    private async void EventDragHandle_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || _activeInteraction.IsResizing || sender is not FrameworkElement handle)
+            return;
 
-        foreach (var evt in sorted)
+        handle.ReleasePointerCaptures();
+        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(_eventCanvas).Position, false);
+        e.Handled = true;
+    }
+
+    private void EventResizeHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+            return;
+
+        _activeInteraction = new EventInteractionState
         {
-            if (currentCluster == null || evt.StartTime >= clusterEnd)
-            {
-                // Start a new cluster
-                currentCluster = new List<CalendarEventViewModel> { evt };
-                clusters.Add(currentCluster);
-                clusterEnd = evt.EndTime;
-            }
-            else
-            {
-                // Add to current cluster
-                currentCluster.Add(evt);
-                if (evt.EndTime > clusterEnd)
-                    clusterEnd = evt.EndTime;
-            }
-        }
+            Event = evt,
+            EventBorder = border,
+            HandleElement = handle,
+            OriginalStart = evt.StartTime,
+            OriginalEnd = evt.EndTime,
+            OriginalTop = Canvas.GetTop(border),
+            OriginalHeight = border.Height,
+            IsResizing = true
+        };
 
-        // For each cluster, assign columns
-        foreach (var cluster in clusters)
+        handle.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void EventResizeHandle_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || !_activeInteraction.IsResizing)
+            return;
+
+        var point = e.GetCurrentPoint(_eventCanvas).Position;
+        double snappedBottom = SnapCanvasY(point.Y);
+        double newHeight = Math.Max(snappedBottom - _activeInteraction.OriginalTop, HourHeight / 4);
+        _activeInteraction.EventBorder.Opacity = 0.85;
+        _activeInteraction.EventBorder.Height = newHeight;
+        _activeInteraction.HasMoved = Math.Abs(newHeight - _activeInteraction.OriginalHeight) >= 1;
+        e.Handled = true;
+    }
+
+    private async void EventResizeHandle_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null || !_activeInteraction.IsResizing || sender is not FrameworkElement handle)
+            return;
+
+        handle.ReleasePointerCaptures();
+        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(_eventCanvas).Position, true);
+        e.Handled = true;
+    }
+
+    private void EventInteraction_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_activeInteraction is null)
+            return;
+
+        ResetInteractionVisual(_activeInteraction);
+        _activeInteraction = null;
+    }
+
+    private async Task CompleteTimedInteractionAsync(EventInteractionState state, Windows.Foundation.Point pointerPosition, bool isResize)
+    {
+        try
         {
-            int totalColumns = 1;
-            var columnEnds = new List<DateTime> { DateTime.MinValue };
+            if (!state.HasMoved)
+                return;
 
-            var assignments = new List<(CalendarEventViewModel Event, int Col)>();
+            CalendarEvent updated = isResize
+                ? CalendarEventMutationHelper.ResizeTimedEvent(state.Event.ToModel(), GetDateTimeFromCanvasPoint(pointerPosition.Y))
+                : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), GetDateTimeFromCanvasPoint(pointerPosition.Y));
 
-            foreach (var evt in cluster)
-            {
-                int assignedCol = -1;
-                for (int c = 0; c < columnEnds.Count; c++)
-                {
-                    if (evt.StartTime >= columnEnds[c])
-                    {
-                        assignedCol = c;
-                        columnEnds[c] = evt.EndTime;
-                        break;
-                    }
-                }
-
-                if (assignedCol == -1)
-                {
-                    assignedCol = columnEnds.Count;
-                    columnEnds.Add(evt.EndTime);
-                    totalColumns = columnEnds.Count;
-                }
-
-                assignments.Add((evt, assignedCol));
-            }
-
-            foreach (var (evt, col) in assignments)
-            {
-                placements.Add(new EventPlacement
-                {
-                    Event = evt,
-                    ColumnIndex = col,
-                    TotalColumns = totalColumns
-                });
-            }
+            await App.Database.SaveEventAsync(updated);
+            App.MainAppWindow?.RefreshCurrentViewData();
         }
+        finally
+        {
+            ResetInteractionVisual(state);
+            _activeInteraction = null;
+        }
+    }
 
-        return placements;
+    private void ResetInteractionVisual(EventInteractionState state)
+    {
+        state.EventBorder.Opacity = 1.0;
+        state.EventBorder.Height = state.OriginalHeight;
+        Canvas.SetTop(state.EventBorder, state.OriginalTop);
+    }
+
+    private double SnapCanvasY(double y)
+    {
+        double clamped = Math.Clamp(y, 0, TotalHours * HourHeight - (HourHeight / 4));
+        double minuteHeight = HourHeight / 60.0;
+        double snappedMinutes = Math.Round(clamped / (minuteHeight * CalendarEventMutationHelper.DefaultIncrementMinutes)) * CalendarEventMutationHelper.DefaultIncrementMinutes;
+        return snappedMinutes * minuteHeight;
+    }
+
+    private DateTime GetDateTimeFromCanvasPoint(double y)
+    {
+        double snappedTop = SnapCanvasY(y);
+        double minuteHeight = HourHeight / 60.0;
+        int minutes = (int)Math.Round(snappedTop / minuteHeight);
+        return ViewModel.CurrentDate.Date.AddMinutes(minutes);
     }
 
     private void ShowCurrentTimeIndicator()
