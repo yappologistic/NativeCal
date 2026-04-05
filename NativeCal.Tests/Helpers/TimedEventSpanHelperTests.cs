@@ -17,6 +17,17 @@ public class TimedEventSpanHelperTests
     }
 
     [Fact]
+    public void GetInclusiveEndDate_LeavesNonMidnightEndOnSameDay()
+    {
+        DateTime start = new(2026, 4, 15, 9, 0, 0);
+        DateTime end = new(2026, 4, 16, 0, 1, 0);
+
+        DateTime inclusiveEnd = TimedEventSpanHelper.GetInclusiveEndDate(start, end);
+
+        Assert.Equal(new DateTime(2026, 4, 16), inclusiveEnd);
+    }
+
+    [Fact]
     public void SpansMultipleDays_ReturnsTrueForOvernightTimedEvent()
     {
         bool spans = TimedEventSpanHelper.SpansMultipleDays(
@@ -24,6 +35,16 @@ public class TimedEventSpanHelperTests
             new DateTime(2026, 4, 16, 11, 0, 0));
 
         Assert.True(spans);
+    }
+
+    [Fact]
+    public void SpansMultipleDays_ReturnsFalseForSameDayEvent()
+    {
+        bool spans = TimedEventSpanHelper.SpansMultipleDays(
+            new DateTime(2026, 4, 15, 9, 15, 0),
+            new DateTime(2026, 4, 15, 11, 0, 0));
+
+        Assert.False(spans);
     }
 
     [Fact]
@@ -41,5 +62,20 @@ public class TimedEventSpanHelperTests
 
         Assert.Equal(visibleStart, segmentStart);
         Assert.Equal(new DateTime(2026, 4, 16, 3, 0, 0), segmentEnd);
+    }
+
+    [Fact]
+    public void GetVisibleSegmentBounds_ReturnsOriginalBoundsWhenAlreadyVisible()
+    {
+        DateTime visibleStart = new(2026, 4, 16, 0, 0, 0);
+        DateTime visibleEnd = visibleStart.AddDays(1);
+        DateTime eventStart = new(2026, 4, 16, 9, 0, 0);
+        DateTime eventEnd = new(2026, 4, 16, 10, 30, 0);
+
+        DateTime segmentStart = TimedEventSpanHelper.GetVisibleSegmentStart(eventStart, visibleStart);
+        DateTime segmentEnd = TimedEventSpanHelper.GetVisibleSegmentEnd(eventEnd, visibleEnd);
+
+        Assert.Equal(eventStart, segmentStart);
+        Assert.Equal(eventEnd, segmentEnd);
     }
 }

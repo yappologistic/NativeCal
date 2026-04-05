@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NativeCal.Models;
+using NativeCal.Services;
 using NativeCal.ViewModels;
 
 namespace NativeCal.Tests.ViewModels;
@@ -46,6 +48,61 @@ public class DayWeekViewModelTests : TestBase
     }
 
     [Fact]
+    public async Task LoadDayCommand_IncludesVisibleHolidayEventsAsReadOnlyAllDayEvents()
+    {
+        App.HolidayService = new HolidayService((_, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            countryCode == "CA"
+                ? new[]
+                {
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2026, 7, 1),
+                        LocalName = "Canada Day",
+                        EnglishName = "Canada Day",
+                        Types = new[] { "Public" }
+                    }
+                }
+                : Array.Empty<HolidayService.HolidayRecord>()));
+
+        var viewModel = new DayViewModel();
+
+        await viewModel.LoadDayCommand.ExecuteAsync(new DateTime(2026, 7, 1));
+
+        var holiday = Assert.Single(viewModel.AllDayEvents, e => e.Title == "Canada Day");
+        Assert.True(holiday.IsReadOnly);
+        Assert.True(holiday.IsOfficialHoliday);
+    }
+
+    [Fact]
+    public async Task LoadDayCommand_HidesHolidayEventsFromHiddenHolidayCalendars()
+    {
+        var calendars = await Db.GetCalendarsAsync();
+        var canadaCalendar = Assert.Single(calendars, c => c.Name == "Canada Holidays");
+        canadaCalendar.IsVisible = false;
+        await Db.SaveCalendarAsync(canadaCalendar);
+
+        App.HolidayService = new HolidayService((_, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            countryCode == "CA"
+                ? new[]
+                {
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2026, 7, 1),
+                        LocalName = "Canada Day",
+                        EnglishName = "Canada Day",
+                        Types = new[] { "Public" }
+                    }
+                }
+                : Array.Empty<HolidayService.HolidayRecord>()));
+
+        var viewModel = new DayViewModel();
+
+        await viewModel.LoadDayCommand.ExecuteAsync(new DateTime(2026, 7, 1));
+
+        Assert.DoesNotContain(viewModel.AllDayEvents, e => e.Title == "Canada Day");
+    }
+
+    [Fact]
     public async Task LoadWeekCommand_PutsOvernightTimedEventsOnBothDaysAndAllDayEventsAcrossSpan()
     {
         var weekDate = new DateTime(2026, 4, 6);
@@ -76,8 +133,37 @@ public class DayWeekViewModelTests : TestBase
 
         Assert.Contains(monday.Events, e => e.Title == "Maintenance");
         Assert.Contains(tuesday.Events, e => e.Title == "Maintenance");
+        Assert.Single(monday.Events, e => e.Title == "Maintenance");
+        Assert.Single(tuesday.Events, e => e.Title == "Maintenance");
         Assert.Contains(monday.AllDayEvents, e => e.Title == "Conference");
         Assert.Contains(tuesday.AllDayEvents, e => e.Title == "Conference");
         Assert.Contains(wednesday.AllDayEvents, e => e.Title == "Conference");
+    }
+
+    [Fact]
+    public async Task LoadWeekCommand_IncludesVisibleHolidayAsReadOnlyAllDayEvent()
+    {
+        App.HolidayService = new HolidayService((_, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            countryCode == "US"
+                ? new[]
+                {
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2026, 7, 4),
+                        LocalName = "Independence Day",
+                        EnglishName = "Independence Day",
+                        Types = new[] { "Public" }
+                    }
+                }
+                : Array.Empty<HolidayService.HolidayRecord>()));
+
+        var viewModel = new WeekViewModel();
+
+        await viewModel.LoadWeekCommand.ExecuteAsync(new DateTime(2026, 7, 4));
+
+        var day = Assert.Single(viewModel.DayColumns, c => c.Date == new DateTime(2026, 7, 4));
+        var holiday = Assert.Single(day.AllDayEvents, e => e.Title == "Independence Day");
+        Assert.True(holiday.IsReadOnly);
+        Assert.True(holiday.IsOfficialHoliday);
     }
 }

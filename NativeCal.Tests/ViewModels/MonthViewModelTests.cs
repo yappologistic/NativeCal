@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NativeCal.Models;
+using NativeCal.Services;
 using NativeCal.ViewModels;
 
 namespace NativeCal.Tests.ViewModels;
@@ -51,6 +53,32 @@ public class MonthViewModelTests : TestBase
         await viewModel.LoadMonthCommand.ExecuteAsync(new DateTime(2026, 4, 1));
 
         Assert.DoesNotContain(GetCell(viewModel, new DateTime(2026, 4, 5)).Events, e => e.Title == "Should stay hidden");
+    }
+
+    [Fact]
+    public async Task LoadMonthCommand_IncludesVisibleHolidayEventInMatchingCell()
+    {
+        App.HolidayService = new HolidayService((_, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            countryCode == "CA"
+                ? new[]
+                {
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2026, 7, 1),
+                        LocalName = "Canada Day",
+                        EnglishName = "Canada Day",
+                        Types = new[] { "Public" }
+                    }
+                }
+                : Array.Empty<HolidayService.HolidayRecord>()));
+
+        var viewModel = new MonthViewModel();
+
+        await viewModel.LoadMonthCommand.ExecuteAsync(new DateTime(2026, 7, 1));
+
+        var holiday = Assert.Single(GetCell(viewModel, new DateTime(2026, 7, 1)).Events, e => e.Title == "Canada Day");
+        Assert.True(holiday.IsReadOnly);
+        Assert.True(holiday.IsOfficialHoliday);
     }
 
     [Fact]
