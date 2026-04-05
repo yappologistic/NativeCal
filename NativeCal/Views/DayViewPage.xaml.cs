@@ -513,9 +513,13 @@ public sealed partial class DayViewPage : Page
             if (!state.HasMoved)
                 return;
 
+            DateTime proposedDateTime = GetDateTimeFromCanvasPoint(pointerPosition.Y);
+
             CalendarEvent updated = isResize
-                ? CalendarEventMutationHelper.ResizeTimedEvent(state.Event.ToModel(), GetDateTimeFromCanvasPoint(pointerPosition.Y))
-                : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), GetDateTimeFromCanvasPoint(pointerPosition.Y));
+                ? CalendarEventMutationHelper.ResizeTimedEvent(
+                    state.Event.ToModel(),
+                    TimedEventSpanHelper.ResolveResizeTargetTimeOnOriginalEndDate(state.OriginalEnd, proposedDateTime))
+                : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), proposedDateTime);
 
             _suppressEventTap = true;
             await App.Database.SaveEventAsync(updated);

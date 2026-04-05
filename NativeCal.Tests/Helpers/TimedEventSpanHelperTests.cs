@@ -122,4 +122,14 @@ public class TimedEventSpanHelperTests
 
         Assert.Equal("9:00 AM - 10:30 AM", text);
     }
+
+    [Fact]
+    public void ResolveResizeTargetTimeOnOriginalEndDate_PreservesOriginalEndDateForMultiDayDayViewResize()
+    {
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetTimeOnOriginalEndDate(
+            new DateTime(2026, 4, 17, 2, 0, 0),
+            new DateTime(2026, 4, 15, 3, 30, 0));
+
+        Assert.Equal(new DateTime(2026, 4, 17, 3, 30, 0), resolved);
+    }
 }

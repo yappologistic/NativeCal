@@ -42,6 +42,11 @@ public static class TimedEventSpanHelper
         return originalEndTime.Date.Add(proposedDateTime.TimeOfDay);
     }
 
+    public static DateTime ResolveResizeTargetTimeOnOriginalEndDate(DateTime originalEndTime, DateTime proposedDateTime)
+    {
+        return originalEndTime.Date.Add(proposedDateTime.TimeOfDay);
+    }
+
     public static string FormatSpanTimeRange(DateTime startTime, DateTime endTime, CultureInfo? culture = null)
     {
         culture ??= CultureInfo.CurrentCulture;

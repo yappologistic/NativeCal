@@ -263,6 +263,36 @@ public class DayWeekViewModelTests : TestBase
     }
 
     [Fact]
+    public async Task LoadDayCommand_ReflectsUpdatedMultiDayTimedEventTimeAndKeepsEventVisibleOnLaterDay()
+    {
+        var evt = new CalendarEvent
+        {
+            Title = "Release train",
+            StartTime = new DateTime(2026, 4, 6, 22, 0, 0),
+            EndTime = new DateTime(2026, 4, 7, 1, 0, 0),
+            CalendarId = 1
+        };
+
+        await Db.SaveEventAsync(evt);
+
+        var startDayViewModel = new DayViewModel();
+        await startDayViewModel.LoadDayCommand.ExecuteAsync(new DateTime(2026, 4, 6));
+
+        evt.EndTime = new DateTime(2026, 4, 8, 3, 30, 0);
+        await Db.SaveEventAsync(evt);
+
+        await startDayViewModel.LoadDayCommand.ExecuteAsync(new DateTime(2026, 4, 6));
+
+        var startDayEvent = Assert.Single(startDayViewModel.Events, e => e.Title == "Release train");
+        Assert.Equal("10:00 PM - 3:30 AM", startDayEvent.TimeDisplay);
+
+        var finalDayViewModel = new DayViewModel();
+        await finalDayViewModel.LoadDayCommand.ExecuteAsync(new DateTime(2026, 4, 8));
+
+        Assert.Contains(finalDayViewModel.Events, e => e.Title == "Release train");
+    }
+
+    [Fact]
     public async Task LoadWeekCommand_PutsOvernightTimedEventsOnBothDaysAndAllDayEventsAcrossSpan()
     {
         var weekDate = new DateTime(2026, 4, 6);
