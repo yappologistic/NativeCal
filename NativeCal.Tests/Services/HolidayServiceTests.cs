@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using NativeCal.Models;
 using NativeCal.Services;
@@ -117,5 +118,107 @@ public class HolidayServiceTests
         var events = await service.GetHolidayEventsAsync(new DateTime(2026, 7, 4), new DateTime(2026, 7, 5), calendars);
 
         Assert.Empty(events);
+    }
+
+    [Fact]
+    public async Task GetHolidayEventsAsync_FallsBackToEnglishNameAndGenericTypeDescription()
+    {
+        var service = new HolidayService((year, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            new[]
+            {
+                new HolidayService.HolidayRecord
+                {
+                    Date = new DateTime(2026, 7, 4),
+                    LocalName = "   ",
+                    EnglishName = "Independence Day",
+                    Types = Array.Empty<string>()
+                }
+            }));
+
+        var calendars = new[]
+        {
+            new CalendarInfo { Id = 20, Name = "US Holidays", ColorHex = "#3B82F6", IsVisible = true }
+        };
+
+        var holiday = Assert.Single(await service.GetHolidayEventsAsync(new DateTime(2026, 7, 4), new DateTime(2026, 7, 5), calendars));
+
+        Assert.Equal("Independence Day", holiday.Title);
+        Assert.Equal("United States", holiday.Location);
+        Assert.Contains("Independence Day (United States)", holiday.Description);
+        Assert.Contains("Type: Holiday", holiday.Description);
+    }
+
+    [Fact]
+    public async Task GetHolidayEventsAsync_ReturnsEmptyForReversedRange()
+    {
+        var service = new HolidayService((year, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            new[]
+            {
+                new HolidayService.HolidayRecord
+                {
+                    Date = new DateTime(2026, 7, 4),
+                    LocalName = "Independence Day",
+                    EnglishName = "Independence Day",
+                    Types = new[] { "Public" }
+                }
+            }));
+
+        var calendars = new[]
+        {
+            new CalendarInfo { Id = 20, Name = "US Holidays", ColorHex = "#3B82F6", IsVisible = true }
+        };
+
+        var events = await service.GetHolidayEventsAsync(new DateTime(2026, 7, 5), new DateTime(2026, 7, 4), calendars);
+
+        Assert.Empty(events);
+    }
+
+    [Fact]
+    public async Task GetHolidayEventsAsync_FetchesEachYearAcrossCrossYearRangeAndOrdersResults()
+    {
+        int fetchCount = 0;
+        var service = new HolidayService((year, countryCode) =>
+        {
+            fetchCount++;
+            IReadOnlyList<HolidayService.HolidayRecord> holidays = year switch
+            {
+                2026 =>
+                [
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2026, 12, 31),
+                        LocalName = "New Year's Eve",
+                        EnglishName = "New Year's Eve",
+                        Types = new[] { "Observance" }
+                    }
+                ],
+                2027 =>
+                [
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2027, 1, 1),
+                        LocalName = "New Year's Day",
+                        EnglishName = "New Year's Day",
+                        Types = new[] { "Public" }
+                    }
+                ],
+                _ => Array.Empty<HolidayService.HolidayRecord>()
+            };
+
+            return Task.FromResult(holidays);
+        });
+
+        var calendars = new[]
+        {
+            new CalendarInfo { Id = 10, Name = "Canada Holidays", ColorHex = "#E11D48", IsVisible = true }
+        };
+
+        var events = await service.GetHolidayEventsAsync(new DateTime(2026, 12, 31), new DateTime(2027, 1, 2), calendars);
+
+        Assert.Equal(2, fetchCount);
+        Assert.Equal(
+            new[] { new DateTime(2026, 12, 31), new DateTime(2027, 1, 1) },
+            events.Select(e => e.StartTime.Date).ToArray());
+        Assert.Equal(new[] { "New Year's Eve", "New Year's Day" }, events.Select(e => e.Title).ToArray());
     }
 }

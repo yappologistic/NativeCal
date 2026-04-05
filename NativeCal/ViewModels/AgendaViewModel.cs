@@ -15,19 +15,21 @@ namespace NativeCal.ViewModels;
 public partial class AgendaViewModel : ObservableObject
 {
     [ObservableProperty]
-    private ObservableCollection<AgendaGroup> agendaGroups = new();
+    public partial ObservableCollection<AgendaGroup> AgendaGroups { get; set; }
 
     [ObservableProperty]
-    private bool isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private bool hasNoEvents;
+    public partial bool HasNoEvents { get; set; }
 
     [ObservableProperty]
-    private int daysToLoad = 30;
+    public partial int DaysToLoad { get; set; }
 
     public AgendaViewModel()
     {
+        AgendaGroups = new();
+        DaysToLoad = 30;
     }
 
     [RelayCommand]
@@ -136,15 +138,22 @@ public partial class AgendaViewModel : ObservableObject
     public partial class AgendaGroup : ObservableObject
     {
         [ObservableProperty]
-        private DateTime date;
+        public partial DateTime Date { get; set; }
 
         [ObservableProperty]
-        private string dateHeader = string.Empty;
+        public partial string DateHeader { get; set; }
 
         [ObservableProperty]
-        private string relativeDate = string.Empty;
+        public partial string RelativeDate { get; set; }
 
         [ObservableProperty]
-        private ObservableCollection<CalendarEventViewModel> events = new();
+        public partial ObservableCollection<CalendarEventViewModel> Events { get; set; }
+
+        public AgendaGroup()
+        {
+            DateHeader = string.Empty;
+            RelativeDate = string.Empty;
+            Events = new();
+        }
     }
 }

@@ -15,21 +15,22 @@ namespace NativeCal.ViewModels;
 public partial class MonthViewModel : ObservableObject
 {
     [ObservableProperty]
-    private DateTime currentMonth;
+    public partial DateTime CurrentMonth { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<DayCell> dayCells = new();
+    public partial ObservableCollection<DayCell> DayCells { get; set; }
 
     [ObservableProperty]
-    private string monthYearTitle = string.Empty;
+    public partial string MonthYearTitle { get; set; }
 
     [ObservableProperty]
-    private bool isLoading;
+    public partial bool IsLoading { get; set; }
 
     public MonthViewModel()
     {
-        currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        monthYearTitle = FormatMonthYear(currentMonth);
+        DayCells = new();
+        MonthYearTitle = string.Empty;
+        CurrentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
     }
 
     partial void OnCurrentMonthChanged(DateTime value)
@@ -76,7 +77,6 @@ public partial class MonthViewModel : ObservableObject
             {
                 if (evt.IsAllDay)
                 {
-                    // For all-day events, add to every day they span.
                     DateTime startDay = evt.StartTime.Date < gridStart ? gridStart : evt.StartTime.Date;
                     DateTime endDay = evt.EndTime.Date > lastVisibleDay ? lastVisibleDay : evt.EndTime.Date;
 
@@ -162,13 +162,18 @@ public partial class MonthViewModel : ObservableObject
     public partial class DayCell : ObservableObject
     {
         [ObservableProperty]
-        private DateTime date;
+        public partial DateTime Date { get; set; }
 
         [ObservableProperty]
-        private bool isCurrentMonth;
+        public partial bool IsCurrentMonth { get; set; }
 
         [ObservableProperty]
-        private ObservableCollection<CalendarEventViewModel> events = new();
+        public partial ObservableCollection<CalendarEventViewModel> Events { get; set; }
+
+        public DayCell()
+        {
+            Events = new();
+        }
 
         public int DayNumber => Date.Day;
 

@@ -82,6 +82,35 @@ public class MonthViewModelTests : TestBase
     }
 
     [Fact]
+    public async Task LoadMonthCommand_HidesHolidayEventsFromHiddenHolidayCalendars()
+    {
+        var calendars = await Db.GetCalendarsAsync();
+        var canadaCalendar = Assert.Single(calendars, c => c.Name == "Canada Holidays");
+        canadaCalendar.IsVisible = false;
+        await Db.SaveCalendarAsync(canadaCalendar);
+
+        App.HolidayService = new HolidayService((_, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            countryCode == "CA"
+                ? new[]
+                {
+                    new HolidayService.HolidayRecord
+                    {
+                        Date = new DateTime(2026, 7, 1),
+                        LocalName = "Canada Day",
+                        EnglishName = "Canada Day",
+                        Types = new[] { "Public" }
+                    }
+                }
+                : Array.Empty<HolidayService.HolidayRecord>()));
+
+        var viewModel = new MonthViewModel();
+
+        await viewModel.LoadMonthCommand.ExecuteAsync(new DateTime(2026, 7, 1));
+
+        Assert.DoesNotContain(GetCell(viewModel, new DateTime(2026, 7, 1)).Events, e => e.Title == "Canada Day");
+    }
+
+    [Fact]
     public async Task LoadMonthCommand_OrdersAllDayBeforeTimedEventsThenByStartTime()
     {
         await Db.SaveEventAsync(new CalendarEvent

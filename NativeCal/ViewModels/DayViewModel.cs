@@ -15,32 +15,33 @@ namespace NativeCal.ViewModels;
 public partial class DayViewModel : ObservableObject
 {
     [ObservableProperty]
-    private DateTime currentDate;
+    public partial DateTime CurrentDate { get; set; }
 
     [ObservableProperty]
-    private string dayTitle = string.Empty;
+    public partial string DayTitle { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<CalendarEventViewModel> events = new();
+    public partial ObservableCollection<CalendarEventViewModel> Events { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<CalendarEventViewModel> allDayEvents = new();
+    public partial ObservableCollection<CalendarEventViewModel> AllDayEvents { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<string> hourLabels = new();
+    public partial ObservableCollection<string> HourLabels { get; set; }
 
     [ObservableProperty]
-    private bool isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private bool isToday;
+    public partial bool IsToday { get; set; }
 
     public DayViewModel()
     {
-        currentDate = DateTime.Today;
-        dayTitle = FormatDayTitle(currentDate);
-        isToday = DateTimeHelper.IsSameDay(currentDate, DateTime.Today);
-        hourLabels = new ObservableCollection<string>(DateTimeHelper.GetHourLabels());
+        DayTitle = string.Empty;
+        Events = new();
+        AllDayEvents = new();
+        HourLabels = new ObservableCollection<string>(DateTimeHelper.GetHourLabels());
+        CurrentDate = DateTime.Today;
     }
 
     partial void OnCurrentDateChanged(DateTime value)

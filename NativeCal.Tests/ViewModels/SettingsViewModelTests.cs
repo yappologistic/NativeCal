@@ -37,6 +37,19 @@ public class SettingsViewModelTests : TestBase
     }
 
     [Fact]
+    public async Task SaveThemeCommand_PersistsSelectedThemeIndex()
+    {
+        var viewModel = new SettingsViewModel
+        {
+            SelectedThemeIndex = 2
+        };
+
+        await viewModel.SaveThemeCommand.ExecuteAsync(null);
+
+        Assert.Equal("2", await Db.GetSettingAsync("Theme", "0"));
+    }
+
+    [Fact]
     public async Task SaveSettingsCommand_PersistsThemeReminderAndFirstDay()
     {
         var viewModel = new SettingsViewModel
@@ -86,5 +99,19 @@ public class SettingsViewModelTests : TestBase
         var calendarsInDatabase = await Db.GetCalendarsAsync();
         Assert.Equal(4, calendarsInDatabase.Count);
         Assert.Single(calendarsInDatabase, c => c.IsDefault);
+    }
+
+    [Fact]
+    public async Task DeleteCalendarCommand_DoesNotRemoveProtectedHolidayCalendars()
+    {
+        var viewModel = new SettingsViewModel();
+        await viewModel.LoadSettingsCommand.ExecuteAsync(null);
+
+        var holidayCalendar = Assert.Single(viewModel.Calendars, c => c.Name == "Canada Holidays");
+
+        await viewModel.DeleteCalendarCommand.ExecuteAsync(holidayCalendar);
+
+        Assert.Contains(viewModel.Calendars, c => c.Id == holidayCalendar.Id);
+        Assert.Contains(await Db.GetCalendarsAsync(), c => c.Id == holidayCalendar.Id);
     }
 }

@@ -223,6 +223,29 @@ public class DatabaseServiceEdgeCaseTests : TestBase
         Assert.Empty(results);
     }
 
+    [Fact]
+    public async Task SaveCalendarAsync_UpdatesExistingCalendar()
+    {
+        var calendar = (await Db.GetCalendarsAsync())[0];
+        calendar.Name = "Renamed";
+        calendar.ColorHex = "#123456";
+
+        await Db.SaveCalendarAsync(calendar);
+
+        var updated = Assert.Single(await Db.GetCalendarsAsync(), c => c.Id == calendar.Id);
+        Assert.Equal("Renamed", updated.Name);
+        Assert.Equal("#123456", updated.ColorHex);
+    }
+
+    [Fact]
+    public async Task SearchEventsAsync_BlankQueryReturnsEmptyList()
+    {
+        await Db.SaveEventAsync(CreateEvent(title: "Has data"));
+
+        Assert.Empty(await Db.SearchEventsAsync(""));
+        Assert.Empty(await Db.SearchEventsAsync("   "));
+    }
+
     private static CalendarEvent CreateEvent(
         string title = "Test",
         DateTime? start = null,

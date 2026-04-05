@@ -15,25 +15,26 @@ namespace NativeCal.ViewModels;
 public partial class WeekViewModel : ObservableObject
 {
     [ObservableProperty]
-    private DateTime weekStart;
+    public partial DateTime WeekStart { get; set; }
 
     [ObservableProperty]
-    private string weekTitle = string.Empty;
+    public partial string WeekTitle { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<DayColumn> dayColumns = new();
+    public partial ObservableCollection<DayColumn> DayColumns { get; set; }
 
     [ObservableProperty]
-    private bool isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<string> hourLabels = new();
+    public partial ObservableCollection<string> HourLabels { get; set; }
 
     public WeekViewModel()
     {
-        weekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
-        weekTitle = FormatWeekTitle(weekStart);
-        hourLabels = new ObservableCollection<string>(DateTimeHelper.GetHourLabels());
+        WeekTitle = string.Empty;
+        DayColumns = new();
+        HourLabels = new ObservableCollection<string>(DateTimeHelper.GetHourLabels());
+        WeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
     }
 
     partial void OnWeekStartChanged(DateTime value)
@@ -147,13 +148,19 @@ public partial class WeekViewModel : ObservableObject
     public partial class DayColumn : ObservableObject
     {
         [ObservableProperty]
-        private DateTime date;
+        public partial DateTime Date { get; set; }
 
         [ObservableProperty]
-        private ObservableCollection<CalendarEventViewModel> events = new();
+        public partial ObservableCollection<CalendarEventViewModel> Events { get; set; }
 
         [ObservableProperty]
-        private ObservableCollection<CalendarEventViewModel> allDayEvents = new();
+        public partial ObservableCollection<CalendarEventViewModel> AllDayEvents { get; set; }
+
+        public DayColumn()
+        {
+            Events = new();
+            AllDayEvents = new();
+        }
 
         public string DayName => Date.ToString("ddd", CultureInfo.CurrentCulture);
 

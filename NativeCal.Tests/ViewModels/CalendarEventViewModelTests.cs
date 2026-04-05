@@ -9,6 +9,22 @@ namespace NativeCal.Tests.ViewModels;
 public class CalendarEventViewModelTests
 {
     [Fact]
+    public void Height_UsesFixedHeightForAllDayEvents()
+    {
+        var viewModel = new CalendarEventViewModel(new CalendarEvent
+        {
+            Title = "Holiday",
+            StartTime = new DateTime(2026, 4, 5),
+            EndTime = new DateTime(2026, 4, 5, 23, 59, 59),
+            IsAllDay = true,
+            CalendarId = 1
+        });
+
+        Assert.Equal(24d, viewModel.Height);
+        Assert.Equal("All Day", viewModel.TimeDisplay);
+    }
+
+    [Fact]
     public void Height_UsesMinimumForZeroOrNegativeDurationTimedEvents()
     {
         var start = new DateTime(2026, 4, 5, 9, 0, 0);
@@ -60,6 +76,37 @@ public class CalendarEventViewModelTests
         Assert.Equal(42, model.Id);
         Assert.Equal("Updated", model.Title);
         Assert.True(model.ModifiedAt >= beforeConversion.AddSeconds(-1));
+    }
+
+    [Fact]
+    public void ToModel_PreservesFlagsAndOptionalFields()
+    {
+        var original = new CalendarEvent
+        {
+            Id = 7,
+            Title = "Canada Day",
+            Description = "Official holiday",
+            Location = "Canada",
+            StartTime = new DateTime(2026, 7, 1),
+            EndTime = new DateTime(2026, 7, 1, 23, 59, 59),
+            IsAllDay = true,
+            CalendarId = 5,
+            ColorHex = "#E11D48",
+            RecurrenceRule = "Yearly",
+            ReminderMinutes = 0,
+            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsReadOnly = true,
+            IsOfficialHoliday = true
+        };
+
+        var model = new CalendarEventViewModel(original).ToModel();
+
+        Assert.True(model.IsReadOnly);
+        Assert.True(model.IsOfficialHoliday);
+        Assert.Equal("#E11D48", model.ColorHex);
+        Assert.Equal("Yearly", model.RecurrenceRule);
+        Assert.Equal(0, model.ReminderMinutes);
+        Assert.Equal("Canada", model.Location);
     }
 
     [Fact]

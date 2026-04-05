@@ -17,27 +17,31 @@ public partial class SettingsViewModel : ObservableObject
     private const string FirstDayOfWeekKey = "FirstDayOfWeek";
 
     [ObservableProperty]
-    private int selectedThemeIndex; // 0=System, 1=Light, 2=Dark
+    public partial int SelectedThemeIndex { get; set; }
 
     [ObservableProperty]
-    private ObservableCollection<CalendarInfo> calendars = new();
+    public partial ObservableCollection<CalendarInfo> Calendars { get; set; }
 
     [ObservableProperty]
-    private bool isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private string appVersion = string.Empty;
+    public partial string AppVersion { get; set; }
 
     [ObservableProperty]
-    private int defaultReminderMinutes = 15;
+    public partial int DefaultReminderMinutes { get; set; }
 
     [ObservableProperty]
-    private int firstDayOfWeekIndex; // 0=Sunday, 1=Monday, 6=Saturday
+    public partial int FirstDayOfWeekIndex { get; set; }
 
     public SettingsViewModel()
     {
+        Calendars = new();
+        AppVersion = "1.0.0";
+        DefaultReminderMinutes = 15;
+
         var version = Assembly.GetExecutingAssembly().GetName().Version;
-        appVersion = version is not null
+        AppVersion = version is not null
             ? $"{version.Major}.{version.Minor}.{version.Build}"
             : "1.0.0";
     }
@@ -52,32 +56,26 @@ public partial class SettingsViewModel : ObservableObject
         {
             IsLoading = true;
 
-            // Load theme preference
             string themeValue = await App.Database.GetSettingAsync(ThemeSettingKey, "0");
             if (int.TryParse(themeValue, out int themeIndex))
             {
                 SelectedThemeIndex = Math.Clamp(themeIndex, 0, 2);
             }
 
-            // Load default reminder
             string reminderValue = await App.Database.GetSettingAsync(DefaultReminderKey, "15");
             if (int.TryParse(reminderValue, out int reminderMinutes))
             {
                 DefaultReminderMinutes = Math.Max(0, reminderMinutes);
             }
 
-            // Load first day of week
             string firstDayValue = await App.Database.GetSettingAsync(FirstDayOfWeekKey, "0");
             if (int.TryParse(firstDayValue, out int firstDay))
             {
-                // Valid values: 0 (Sunday), 1 (Monday), 6 (Saturday)
-                // Clamp to known valid values
                 if (firstDay != 0 && firstDay != 1 && firstDay != 6)
                     firstDay = 0;
                 FirstDayOfWeekIndex = firstDay;
             }
 
-            // Load calendars
             var calendarList = await App.Database.GetCalendarsAsync();
             Calendars = new ObservableCollection<CalendarInfo>(calendarList);
         }
@@ -110,7 +108,6 @@ public partial class SettingsViewModel : ObservableObject
 
         await App.Database.SaveCalendarAsync(newCalendar);
 
-        // Reload calendars to get the auto-incremented Id
         var calendarList = await App.Database.GetCalendarsAsync();
         Calendars = new ObservableCollection<CalendarInfo>(calendarList);
     }
@@ -121,7 +118,6 @@ public partial class SettingsViewModel : ObservableObject
         if (calendar is null)
             return;
 
-        // Prevent deleting the last calendar
         if (Calendars.Count <= 1)
             return;
 

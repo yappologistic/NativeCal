@@ -13,64 +13,50 @@ public partial class CalendarEventViewModel : ObservableObject
     private CalendarEvent _event;
 
     [ObservableProperty]
-    private int id;
+    public partial int Id { get; set; }
 
     [ObservableProperty]
-    private string title = string.Empty;
+    public partial string Title { get; set; }
 
     [ObservableProperty]
-    private string? description;
+    public partial string? Description { get; set; }
 
     [ObservableProperty]
-    private string? location;
+    public partial string? Location { get; set; }
 
     [ObservableProperty]
-    private DateTime startTime;
+    public partial DateTime StartTime { get; set; }
 
     [ObservableProperty]
-    private DateTime endTime;
+    public partial DateTime EndTime { get; set; }
 
     [ObservableProperty]
-    private bool isAllDay;
+    public partial bool IsAllDay { get; set; }
 
     [ObservableProperty]
-    private int calendarId;
+    public partial int CalendarId { get; set; }
 
     [ObservableProperty]
-    private string? colorHex;
+    public partial string? ColorHex { get; set; }
 
     [ObservableProperty]
-    private string? recurrenceRule;
+    public partial string? RecurrenceRule { get; set; }
 
     [ObservableProperty]
-    private int reminderMinutes;
+    public partial int ReminderMinutes { get; set; }
 
     [ObservableProperty]
-    private bool isReadOnly;
+    public partial bool IsReadOnly { get; set; }
 
     [ObservableProperty]
-    private bool isOfficialHoliday;
+    public partial bool IsOfficialHoliday { get; set; }
 
-    /// <summary>
-    /// Formatted time range display, e.g. "9:00 AM - 10:30 AM" or "All Day".
-    /// </summary>
     public string TimeDisplay => DateTimeHelper.FormatTimeRange(StartTime, EndTime, IsAllDay);
 
-    /// <summary>
-    /// Formatted date display, e.g. "Friday, April 4, 2026".
-    /// </summary>
     public string DateDisplay => StartTime.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture);
 
-    /// <summary>
-    /// Top offset in pixels for positioning in day/week view.
-    /// Calculated as minutes from midnight * pixels per minute.
-    /// </summary>
     public double TopOffset => (StartTime.Hour * 60 + StartTime.Minute) * PixelsPerMinute;
 
-    /// <summary>
-    /// Height in pixels for the event block in day/week view.
-    /// Calculated as duration in minutes * pixels per minute, with a minimum of 18px.
-    /// </summary>
     public double Height
     {
         get
@@ -89,30 +75,28 @@ public partial class CalendarEventViewModel : ObservableObject
     public CalendarEventViewModel()
     {
         _event = new CalendarEvent();
+        Title = string.Empty;
     }
 
     public CalendarEventViewModel(CalendarEvent evt)
     {
         _event = evt ?? throw new ArgumentNullException(nameof(evt));
 
-        id = evt.Id;
-        title = evt.Title;
-        description = evt.Description;
-        location = evt.Location;
-        startTime = evt.StartTime;
-        endTime = evt.EndTime;
-        isAllDay = evt.IsAllDay;
-        calendarId = evt.CalendarId;
-        colorHex = evt.ColorHex;
-        recurrenceRule = evt.RecurrenceRule;
-        reminderMinutes = evt.ReminderMinutes;
-        isReadOnly = evt.IsReadOnly;
-        isOfficialHoliday = evt.IsOfficialHoliday;
+        Id = evt.Id;
+        Title = evt.Title;
+        Description = evt.Description;
+        Location = evt.Location;
+        StartTime = evt.StartTime;
+        EndTime = evt.EndTime;
+        IsAllDay = evt.IsAllDay;
+        CalendarId = evt.CalendarId;
+        ColorHex = evt.ColorHex;
+        RecurrenceRule = evt.RecurrenceRule;
+        ReminderMinutes = evt.ReminderMinutes;
+        IsReadOnly = evt.IsReadOnly;
+        IsOfficialHoliday = evt.IsOfficialHoliday;
     }
 
-    /// <summary>
-    /// Creates a CalendarEvent model from the current view model state.
-    /// </summary>
     public CalendarEvent ToModel()
     {
         return new CalendarEvent
