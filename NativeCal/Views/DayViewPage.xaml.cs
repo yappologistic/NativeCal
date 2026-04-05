@@ -484,7 +484,7 @@ public sealed partial class DayViewPage : Page
             Content = BuildEventDetailContent(evt, fe),
             PrimaryButtonText = "Edit",
             CloseButtonText = "Close",
-            XamlRoot = this.XamlRoot
+            XamlRoot = DialogXamlRootHelper.Resolve(TimeGrid, AllDayPanel, TodayCircle)
         };
 
         var result = await dialog.ShowAsync();
@@ -595,7 +595,7 @@ public sealed partial class DayViewPage : Page
             Content = content,
             PrimaryButtonText = "Create",
             CloseButtonText = "Cancel",
-            XamlRoot = this.XamlRoot
+            XamlRoot = DialogXamlRootHelper.Resolve(TimeGrid, AllDayPanel, TodayCircle)
         };
 
         var result = await dialog.ShowAsync();

@@ -434,7 +434,7 @@ public sealed partial class SettingsPage : Page
             PrimaryButtonText = "Delete",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,
-            XamlRoot = this.XamlRoot
+            XamlRoot = DialogXamlRootHelper.Resolve(ThemeComboBox, FirstDayComboBox, ReminderComboBox, CalendarSettingsPanel)
         };
 
         var result = await confirmDialog.ShowAsync();
@@ -539,7 +539,7 @@ public sealed partial class SettingsPage : Page
             PrimaryButtonText = "Save",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = this.XamlRoot
+            XamlRoot = DialogXamlRootHelper.Resolve(ThemeComboBox, FirstDayComboBox, ReminderComboBox, CalendarSettingsPanel)
         };
 
         // Validate: disable Save when name is empty

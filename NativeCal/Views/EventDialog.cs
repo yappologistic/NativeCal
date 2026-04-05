@@ -508,14 +508,18 @@ public static class EventDialog
             XamlRoot = xamlRoot
         };
 
-        // Validate: disable Save when title is empty
+        // Validate: disable Save when title is empty or no calendar can be selected.
         dialog.PrimaryButtonText = "Save";
-        dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(titleBox.Text);
 
-        titleBox.TextChanged += (s, e) =>
+        void UpdatePrimaryButtonState()
         {
-            dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(titleBox.Text);
-        };
+            bool hasTitle = !string.IsNullOrWhiteSpace(titleBox.Text);
+            bool hasCalendar = calendars.Count > 0;
+            dialog.IsPrimaryButtonEnabled = hasTitle && hasCalendar;
+        }
+
+        UpdatePrimaryButtonState();
+        titleBox.TextChanged += (s, e) => UpdatePrimaryButtonState();
 
         // ── Result builder function ─────────────────────────────────────
         Func<CalendarEvent> getResult = () =>
@@ -550,9 +554,11 @@ public static class EventDialog
             {
                 calendarId = calendars[calendarCombo.SelectedIndex].Id;
             }
-            else if (calendars.Count > 0)
+            else
             {
-                calendarId = calendars.First(c => c.IsDefault).Id;
+                calendarId = calendars.FirstOrDefault(c => c.IsDefault)?.Id
+                    ?? calendars.FirstOrDefault()?.Id
+                    ?? 0;
             }
 
             int reminderMinutes = 15;

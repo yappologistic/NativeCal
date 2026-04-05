@@ -293,7 +293,7 @@ public sealed partial class AgendaViewPage : Page
             Content = detailPanel,
             PrimaryButtonText = "Edit",
             CloseButtonText = "Close",
-            XamlRoot = this.XamlRoot
+            XamlRoot = DialogXamlRootHelper.Resolve(AgendaPanel, EmptyState, LoadingRing)
         };
 
         var result = await dialog.ShowAsync();
@@ -333,7 +333,7 @@ public sealed partial class AgendaViewPage : Page
             Content = content,
             PrimaryButtonText = "Create",
             CloseButtonText = "Cancel",
-            XamlRoot = this.XamlRoot
+            XamlRoot = DialogXamlRootHelper.Resolve(AgendaPanel, EmptyState, LoadingRing)
         };
 
         var result = await dialog.ShowAsync();
