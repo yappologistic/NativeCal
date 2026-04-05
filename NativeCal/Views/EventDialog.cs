@@ -72,6 +72,31 @@ public static class EventDialog
     }
 
     /// <summary>
+    /// Shows dialog for creating a new event pre-populated with exact values.
+    /// Useful when the user starts from a specific time slot or view.
+    /// </summary>
+    public static async Task<CalendarEvent?> ShowCreateDialog(XamlRoot xamlRoot, CalendarEvent initialEvent)
+    {
+        ArgumentNullException.ThrowIfNull(initialEvent);
+
+        var (dialog, getResult) = await BuildEventDialog(xamlRoot, existing: initialEvent, defaultDate: null);
+
+        dialog.Title = "New Event";
+        dialog.PrimaryButtonText = "Save";
+        dialog.CloseButtonText = "Cancel";
+        dialog.DefaultButton = ContentDialogButton.Primary;
+
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            return getResult();
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Shows dialog for editing an existing event.
     /// </summary>
     public static async Task<CalendarEvent?> ShowEditDialog(XamlRoot xamlRoot, CalendarEvent existingEvent)
@@ -404,7 +429,9 @@ public static class EventDialog
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
 
-        int selectedCalendarIndex = 0;
+        int selectedCalendarIndex = -1;
+        int defaultCalendarIndex = -1;
+
         for (int i = 0; i < calendars.Count; i++)
         {
             var cal = calendars[i];
@@ -425,17 +452,23 @@ public static class EventDialog
 
             calendarCombo.Items.Add(item);
 
-            if (existing != null && cal.Id == existing.CalendarId)
+            if (cal.IsDefault && defaultCalendarIndex < 0)
             {
-                selectedCalendarIndex = i;
+                defaultCalendarIndex = i;
             }
-            else if (existing == null && cal.IsDefault)
+
+            if (existing != null && cal.Id == existing.CalendarId)
             {
                 selectedCalendarIndex = i;
             }
         }
 
-        calendarCombo.SelectedIndex = calendars.Count > 0 ? selectedCalendarIndex : -1;
+        if (selectedCalendarIndex < 0)
+        {
+            selectedCalendarIndex = defaultCalendarIndex >= 0 ? defaultCalendarIndex : (calendars.Count > 0 ? 0 : -1);
+        }
+
+        calendarCombo.SelectedIndex = selectedCalendarIndex;
 
         // ── Reminder selector ───────────────────────────────────────────
         var reminderCombo = new ComboBox

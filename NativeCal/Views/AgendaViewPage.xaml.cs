@@ -306,52 +306,25 @@ public sealed partial class AgendaViewPage : Page
 
     private async void CreateEvent_Click(object sender, RoutedEventArgs e)
     {
-        var theme = GetCurrentTheme();
         DateTime startTime = DateTime.Today.AddHours(DateTime.Now.Hour + 1);
         DateTime endTime = startTime.AddHours(1);
 
-        var titleBox = new TextBox
+        var draftEvent = new CalendarEvent
         {
-            PlaceholderText = "Event title",
-            Margin = new Thickness(0, 0, 0, 8)
+            StartTime = startTime,
+            EndTime = endTime,
+            IsAllDay = false,
+            ReminderMinutes = 15
         };
 
-        var timeInfo = new TextBlock
+        var createdEvent = await EventDialog.ShowCreateDialog(
+            DialogXamlRootHelper.Resolve(AgendaPanel, EmptyState, LoadingRing),
+            draftEvent);
+
+        if (createdEvent is not null)
         {
-            Text = $"{startTime:h:mm tt} - {endTime:h:mm tt}, {startTime:dddd MMMM d}",
-            Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
-        };
-
-        var content = new StackPanel { Spacing = 8 };
-        content.Children.Add(titleBox);
-        content.Children.Add(timeInfo);
-
-        var dialog = new ContentDialog
-        {
-            Title = "New Event",
-            Content = content,
-            PrimaryButtonText = "Create",
-            CloseButtonText = "Cancel",
-            XamlRoot = DialogXamlRootHelper.Resolve(AgendaPanel, EmptyState, LoadingRing)
-        };
-
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(titleBox.Text))
-        {
-            var newEvent = new CalendarEvent
-            {
-                Title = titleBox.Text.Trim(),
-                StartTime = startTime,
-                EndTime = endTime,
-                IsAllDay = false,
-                CalendarId = 1,
-                CreatedAt = DateTime.UtcNow,
-                ModifiedAt = DateTime.UtcNow
-            };
-
-            await App.Database.SaveEventAsync(newEvent);
-            await ViewModel.LoadAgendaCommand.ExecuteAsync(null);
-            BuildAgendaList();
+            await App.Database.SaveEventAsync(createdEvent);
+            App.MainAppWindow?.RefreshCurrentViewData();
         }
     }
 

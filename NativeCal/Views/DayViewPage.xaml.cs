@@ -547,8 +547,6 @@ public sealed partial class DayViewPage : Page
         if (sender is not FrameworkElement fe || fe.Tag is not int hour)
             return;
 
-        var theme = GetCurrentTheme();
-
         // Determine minute from tap position within the hour cell
         var position = e.GetPosition(fe);
         int minute = (int)(position.Y / HourHeight * 60);
@@ -560,52 +558,22 @@ public sealed partial class DayViewPage : Page
         DateTime startTime = ViewModel.CurrentDate.Date.AddHours(hour).AddMinutes(minute);
         DateTime endTime = startTime.AddHours(1);
 
-        var newEvent = new CalendarEvent
+        var draftEvent = new CalendarEvent
         {
-            Title = string.Empty,
             StartTime = startTime,
             EndTime = endTime,
             IsAllDay = false,
-            CalendarId = 1,
-            CreatedAt = DateTime.UtcNow,
-            ModifiedAt = DateTime.UtcNow
+            ReminderMinutes = 15
         };
 
-        var titleBox = new TextBox
+        var createdEvent = await EventDialog.ShowCreateDialog(
+            DialogXamlRootHelper.Resolve(TimeGrid, AllDayPanel, TodayCircle),
+            draftEvent);
+
+        if (createdEvent is not null)
         {
-            PlaceholderText = "Event title",
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-
-        var timeInfo = new TextBlock
-        {
-            Text = $"{startTime:h:mm tt} - {endTime:h:mm tt}",
-            Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
-        };
-
-        var content = new StackPanel { Spacing = 8 };
-        content.Children.Add(titleBox);
-        content.Children.Add(timeInfo);
-
-        var dialog = new ContentDialog
-        {
-            Title = "New Event",
-            Content = content,
-            PrimaryButtonText = "Create",
-            CloseButtonText = "Cancel",
-            XamlRoot = DialogXamlRootHelper.Resolve(TimeGrid, AllDayPanel, TodayCircle)
-        };
-
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(titleBox.Text))
-        {
-            newEvent.Title = titleBox.Text.Trim();
-            await App.Database.SaveEventAsync(newEvent);
-
-            // Reload
-            await ViewModel.LoadDayCommand.ExecuteAsync(ViewModel.CurrentDate);
-            UpdateDayDisplay();
-            ShowCurrentTimeIndicator();
+            await App.Database.SaveEventAsync(createdEvent);
+            App.MainAppWindow?.RefreshCurrentViewData();
         }
     }
 }
