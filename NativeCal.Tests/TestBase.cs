@@ -20,10 +20,12 @@ public abstract class TestBase : IAsyncLifetime
         _dbPath = Path.Combine(Path.GetTempPath(), $"nativecal_test_{Guid.NewGuid():N}.db");
         Db = new DatabaseService(_dbPath);
         await Db.InitializeAsync();
+        App.Database = Db;
     }
 
     public Task DisposeAsync()
     {
+        App.Database = null!;
         // Clean up the temp database file
         try
         {

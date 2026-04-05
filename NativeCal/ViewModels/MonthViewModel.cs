@@ -63,24 +63,40 @@ public partial class MonthViewModel : ObservableObject
             List<CalendarEvent> events = await App.Database.GetEventsAsync(gridStart, gridEnd);
 
             var lookup = new Dictionary<DateTime, List<CalendarEvent>>();
+            DateTime lastVisibleDay = gridEnd.AddDays(-1);
+
             foreach (var evt in events)
             {
-                DateTime evtDate = evt.StartTime.Date;
                 if (evt.IsAllDay)
                 {
-                    // For all-day events, add to every day they span
-                    for (DateTime d = evt.StartTime.Date; d <= evt.EndTime.Date && d < gridEnd; d = d.AddDays(1))
+                    // For all-day events, add to every day they span.
+                    DateTime startDay = evt.StartTime.Date < gridStart ? gridStart : evt.StartTime.Date;
+                    DateTime endDay = evt.EndTime.Date > lastVisibleDay ? lastVisibleDay : evt.EndTime.Date;
+
+                    for (DateTime d = startDay; d <= endDay; d = d.AddDays(1))
                     {
                         if (!lookup.ContainsKey(d))
                             lookup[d] = new List<CalendarEvent>();
                         lookup[d].Add(evt);
                     }
+
+                    continue;
                 }
-                else
+
+                DateTime firstCandidateDay = evt.StartTime.Date < gridStart ? gridStart : evt.StartTime.Date;
+                DateTime lastCandidateDay = evt.EndTime.Date > lastVisibleDay ? lastVisibleDay : evt.EndTime.Date;
+
+                for (DateTime d = firstCandidateDay; d <= lastCandidateDay; d = d.AddDays(1))
                 {
-                    if (!lookup.ContainsKey(evtDate))
-                        lookup[evtDate] = new List<CalendarEvent>();
-                    lookup[evtDate].Add(evt);
+                    DateTime dayStart = d;
+                    DateTime dayEnd = d.AddDays(1);
+
+                    if (evt.StartTime < dayEnd && evt.EndTime > dayStart)
+                    {
+                        if (!lookup.ContainsKey(d))
+                            lookup[d] = new List<CalendarEvent>();
+                        lookup[d].Add(evt);
+                    }
                 }
             }
 

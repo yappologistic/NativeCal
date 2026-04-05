@@ -32,7 +32,7 @@ public partial class SettingsViewModel : ObservableObject
     private int defaultReminderMinutes = 15;
 
     [ObservableProperty]
-    private int firstDayOfWeekIndex; // 0=Sunday, 1=Monday
+    private int firstDayOfWeekIndex; // 0=Sunday, 1=Monday, 6=Saturday
 
     public SettingsViewModel()
     {
@@ -70,7 +70,11 @@ public partial class SettingsViewModel : ObservableObject
             string firstDayValue = await App.Database.GetSettingAsync(FirstDayOfWeekKey, "0");
             if (int.TryParse(firstDayValue, out int firstDay))
             {
-                FirstDayOfWeekIndex = Math.Clamp(firstDay, 0, 1);
+                // Valid values: 0 (Sunday), 1 (Monday), 6 (Saturday)
+                // Clamp to known valid values
+                if (firstDay != 0 && firstDay != 1 && firstDay != 6)
+                    firstDay = 0;
+                FirstDayOfWeekIndex = firstDay;
             }
 
             // Load calendars
@@ -123,24 +127,8 @@ public partial class SettingsViewModel : ObservableObject
 
         await App.Database.DeleteCalendarAsync(calendar.Id);
 
-        Calendars.Remove(calendar);
-
-        // If we deleted the default calendar, make the first remaining one default
-        bool hasDefault = false;
-        foreach (var cal in Calendars)
-        {
-            if (cal.IsDefault)
-            {
-                hasDefault = true;
-                break;
-            }
-        }
-
-        if (!hasDefault && Calendars.Count > 0)
-        {
-            Calendars[0].IsDefault = true;
-            await App.Database.SaveCalendarAsync(Calendars[0]);
-        }
+        var calendarList = await App.Database.GetCalendarsAsync();
+        Calendars = new ObservableCollection<CalendarInfo>(calendarList);
     }
 
     [RelayCommand]

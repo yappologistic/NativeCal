@@ -26,6 +26,12 @@
     <Compile Include="..\NativeCal\Models\*.cs" LinkBase="Models" />
     <Compile Include="..\NativeCal\Services\*.cs" LinkBase="Services" />
     <Compile Include="..\NativeCal\Helpers\DateTimeHelper.cs" LinkBase="Helpers" />
+    <Compile Include="..\NativeCal\ViewModels\AgendaViewModel.cs" LinkBase="ViewModels" />
+    <Compile Include="..\NativeCal\ViewModels\CalendarEventViewModel.cs" LinkBase="ViewModels" />
+    <Compile Include="..\NativeCal\ViewModels\DayViewModel.cs" LinkBase="ViewModels" />
+    <Compile Include="..\NativeCal\ViewModels\MonthViewModel.cs" LinkBase="ViewModels" />
+    <Compile Include="..\NativeCal\ViewModels\SettingsViewModel.cs" LinkBase="ViewModels" />
+    <Compile Include="..\NativeCal\ViewModels\WeekViewModel.cs" LinkBase="ViewModels" />
   </ItemGroup>
 
 </Project>

@@ -46,28 +46,38 @@ public partial class AgendaViewModel : ObservableObject
             List<CalendarEvent> events = await App.Database.GetEventsAsync(startDate, endDate);
 
             var grouped = new Dictionary<DateTime, List<CalendarEvent>>();
+            DateTime lastAgendaDay = endDate.AddDays(-1);
+
             foreach (var evt in events)
             {
                 if (evt.IsAllDay)
                 {
-                    for (DateTime d = evt.StartTime.Date; d <= evt.EndTime.Date && d < endDate; d = d.AddDays(1))
+                    DateTime startDay = evt.StartTime.Date < startDate ? startDate : evt.StartTime.Date;
+                    DateTime endDay = evt.EndTime.Date > lastAgendaDay ? lastAgendaDay : evt.EndTime.Date;
+
+                    for (DateTime d = startDay; d <= endDay; d = d.AddDays(1))
                     {
-                        if (d >= startDate)
-                        {
-                            if (!grouped.ContainsKey(d))
-                                grouped[d] = new List<CalendarEvent>();
-                            grouped[d].Add(evt);
-                        }
+                        if (!grouped.ContainsKey(d))
+                            grouped[d] = new List<CalendarEvent>();
+                        grouped[d].Add(evt);
                     }
+
+                    continue;
                 }
-                else
+
+                DateTime firstCandidateDay = evt.StartTime.Date < startDate ? startDate : evt.StartTime.Date;
+                DateTime lastCandidateDay = evt.EndTime.Date > lastAgendaDay ? lastAgendaDay : evt.EndTime.Date;
+
+                for (DateTime d = firstCandidateDay; d <= lastCandidateDay; d = d.AddDays(1))
                 {
-                    DateTime evtDate = evt.StartTime.Date;
-                    if (evtDate >= startDate)
+                    DateTime dayStart = d;
+                    DateTime dayEnd = d.AddDays(1);
+
+                    if (evt.StartTime < dayEnd && evt.EndTime > dayStart)
                     {
-                        if (!grouped.ContainsKey(evtDate))
-                            grouped[evtDate] = new List<CalendarEvent>();
-                        grouped[evtDate].Add(evt);
+                        if (!grouped.ContainsKey(d))
+                            grouped[d] = new List<CalendarEvent>();
+                        grouped[d].Add(evt);
                     }
                 }
             }
@@ -109,6 +119,9 @@ public partial class AgendaViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadMore()
     {
+        if (IsLoading)
+            return;
+
         DaysToLoad += 30;
         await LoadAgenda();
     }
