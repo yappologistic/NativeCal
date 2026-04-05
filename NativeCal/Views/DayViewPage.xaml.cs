@@ -264,11 +264,19 @@ public sealed partial class DayViewPage : Page
                 canvasWidth = 400; // reasonable default
         }
 
+        DateTime dayStart = ViewModel.CurrentDate.Date;
+        DateTime dayEnd = dayStart.AddDays(1);
+
         foreach (var placement in placements)
         {
             var evt = placement.Event;
-            double top = (evt.StartTime.Hour * 60 + evt.StartTime.Minute) * (HourHeight / 60.0);
-            double durationMinutes = (evt.EndTime - evt.StartTime).TotalMinutes;
+            DateTime segmentStart = TimedEventSpanHelper.GetVisibleSegmentStart(evt.StartTime, dayStart);
+            DateTime segmentEnd = TimedEventSpanHelper.GetVisibleSegmentEnd(evt.EndTime, dayEnd);
+            if (segmentEnd <= segmentStart)
+                continue;
+
+            double top = (segmentStart.Hour * 60 + segmentStart.Minute) * (HourHeight / 60.0);
+            double durationMinutes = (segmentEnd - segmentStart).TotalMinutes;
             double height = Math.Max(durationMinutes * (HourHeight / 60.0), 20);
 
             double columnWidth = (canvasWidth - 8) / placement.TotalColumns; // 8px right margin

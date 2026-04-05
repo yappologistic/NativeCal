@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -35,6 +36,7 @@ public sealed partial class WeekViewPage : Page
 
     // Canvases for timed events in each day column
     private readonly Canvas[] _dayCanvases = new Canvas[DaysInWeek];
+    private Canvas _spanningEventCanvas = null!;
 
     // Vertical column separators and current-time indicator
     private Line _nowIndicator = null!;
@@ -265,6 +267,16 @@ public sealed partial class WeekViewPage : Page
             TimeGrid.Children.Add(canvas);
         }
 
+        _spanningEventCanvas = new Canvas
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Top,
+            Height = totalHeight
+        };
+        Grid.SetColumn(_spanningEventCanvas, 1);
+        Grid.SetColumnSpan(_spanningEventCanvas, DaysInWeek);
+        TimeGrid.Children.Add(_spanningEventCanvas);
+
         // Current-time red indicator line (spans all 7 day columns)
         _nowIndicator = new Line
         {
@@ -300,6 +312,13 @@ public sealed partial class WeekViewPage : Page
     {
         ObservableCollection<WeekViewModel.DayColumn> columns = ViewModel.DayColumns;
         var theme = GetCurrentTheme();
+        var spanningTimedEvents = GetUniqueTimedEvents(columns)
+            .Where(IsSpanningTimedEvent)
+            .OrderBy(e => e.StartTime)
+            .ThenBy(e => e.EndTime)
+            .ToList();
+
+        _spanningEventCanvas?.Children.Clear();
 
         for (int i = 0; i < DaysInWeek; i++)
         {
@@ -333,7 +352,7 @@ public sealed partial class WeekViewPage : Page
             // ── Timed events ──
             _dayCanvases[i].Children.Clear();
 
-            var placements = EventLayoutHelper.CalculateOverlapPlacements(col.Events);
+            var placements = EventLayoutHelper.CalculateOverlapPlacements(col.Events.Where(e => !IsSpanningTimedEvent(e)));
             double canvasWidth = _dayCanvases[i].ActualWidth;
             if (canvasWidth <= 0)
             {
@@ -356,6 +375,8 @@ public sealed partial class WeekViewPage : Page
                 _dayCanvases[i].Children.Add(block);
             }
         }
+
+        RenderSpanningTimedEvents(spanningTimedEvents);
 
         // ── Now indicator ──
         UpdateNowIndicator();
@@ -393,6 +414,115 @@ public sealed partial class WeekViewPage : Page
 
         chip.Tapped += EventBlock_Tapped;
         return chip;
+    }
+
+    private void RenderSpanningTimedEvents(IEnumerable<CalendarEventViewModel> spanningEvents)
+    {
+        if (_spanningEventCanvas is null)
+            return;
+
+        _spanningEventCanvas.Children.Clear();
+
+        foreach (var evt in spanningEvents)
+        {
+            if (!TryGetSpanningEventBounds(evt, out double left, out double width, out double top))
+                continue;
+
+            var block = CreateSpanningTimedEventBlock(evt, width);
+            Canvas.SetLeft(block, left);
+            Canvas.SetTop(block, top);
+            _spanningEventCanvas.Children.Add(block);
+        }
+    }
+
+    private Border CreateSpanningTimedEventBlock(CalendarEventViewModel evt, double width)
+    {
+        string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
+        SolidColorBrush bgBrush;
+        try { bgBrush = ColorHelper.ToBrush(colorHex); }
+        catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }
+
+        var titleText = new TextBlock
+        {
+            Text = evt.Title,
+            FontSize = 12,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1
+        };
+
+        var timeText = new TextBlock
+        {
+            Text = evt.StartTime.ToString("h:mm tt", CultureInfo.CurrentCulture),
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Opacity = 0.8,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6
+        };
+        content.Children.Add(titleText);
+        content.Children.Add(timeText);
+
+        var resizeHandle = new Border
+        {
+            Height = 8,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(80, 255, 255, 255)),
+            CornerRadius = new CornerRadius(4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible
+        };
+
+        var layout = new Grid
+        {
+            RowDefinitions =
+            {
+                new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
+                new RowDefinition { Height = GridLength.Auto }
+            }
+        };
+        Grid.SetRow(content, 0);
+        Grid.SetRow(resizeHandle, 1);
+        layout.Children.Add(content);
+        layout.Children.Add(resizeHandle);
+
+        var block = new Border
+        {
+            CornerRadius = new CornerRadius(8),
+            Background = bgBrush,
+            Padding = new Thickness(10, 4, 10, 4),
+            Height = 30,
+            Width = Math.Max(width, 48),
+            Tag = evt,
+            Child = layout
+        };
+
+        if (!evt.IsReadOnly)
+        {
+            block.PointerPressed += EventDragHandle_PointerPressed;
+            block.PointerMoved += EventDragHandle_PointerMoved;
+            block.PointerReleased += EventDragHandle_PointerReleased;
+            block.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+        }
+
+        resizeHandle.Tag = new EventHandleTag { EventBorder = block, IsResizeHandle = true };
+        resizeHandle.PointerPressed += EventResizeHandle_PointerPressed;
+        resizeHandle.PointerMoved += EventResizeHandle_PointerMoved;
+        resizeHandle.PointerReleased += EventResizeHandle_PointerReleased;
+        resizeHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+
+        block.Tapped += EventBlock_Tapped;
+        return block;
     }
 
     /// <summary>
@@ -736,9 +866,73 @@ public sealed partial class WeekViewPage : Page
         return true;
     }
 
+    private static List<CalendarEventViewModel> GetUniqueTimedEvents(IEnumerable<WeekViewModel.DayColumn> columns)
+    {
+        return columns
+            .SelectMany(c => c.Events)
+            .GroupBy(e => new { e.Id, e.CalendarId, e.StartTime, e.EndTime, e.Title })
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private static bool IsSpanningTimedEvent(CalendarEventViewModel evt)
+    {
+        return !evt.IsAllDay && TimedEventSpanHelper.SpansMultipleDays(evt.StartTime, evt.EndTime);
+    }
+
+    private bool TryGetSpanningEventBounds(CalendarEventViewModel evt, out double left, out double width, out double top)
+    {
+        left = 0;
+        width = 0;
+        top = 0;
+
+        DateTime weekStartDate = ViewModel.WeekStart.Date;
+        DateTime weekEndDate = weekStartDate.AddDays(DaysInWeek - 1);
+        DateTime startDate = evt.StartTime.Date < weekStartDate ? weekStartDate : evt.StartTime.Date;
+        DateTime endDate = TimedEventSpanHelper.GetInclusiveEndDate(evt.StartTime, evt.EndTime);
+        if (endDate > weekEndDate)
+            endDate = weekEndDate;
+
+        if (endDate < weekStartDate || startDate > weekEndDate)
+            return false;
+
+        int startIndex = (int)(startDate - weekStartDate).TotalDays;
+        int endIndex = (int)(endDate - weekStartDate).TotalDays;
+
+        double startX = GetCanvasLeft(startIndex);
+        double endRight = GetCanvasLeft(endIndex) + GetCanvasWidth(endIndex);
+        left = startX + 2;
+        width = Math.Max(endRight - startX - 4, 48);
+
+        DateTime visibleStart = TimedEventSpanHelper.GetVisibleSegmentStart(evt.StartTime, startDate);
+        top = (visibleStart.Hour * 60 + visibleStart.Minute) * (HourHeight / 60.0);
+        return true;
+    }
+
+    private double GetCanvasLeft(int dayIndex)
+    {
+        if (_spanningEventCanvas is not null && _dayCanvases[dayIndex].ActualWidth > 0)
+        {
+            return _dayCanvases[dayIndex]
+                .TransformToVisual(_spanningEventCanvas)
+                .TransformPoint(new Windows.Foundation.Point(0, 0)).X;
+        }
+
+        return dayIndex * GetCanvasWidth(dayIndex);
+    }
+
+    private double GetCanvasWidth(int dayIndex)
+    {
+        if (_dayCanvases[dayIndex].ActualWidth > 0)
+            return _dayCanvases[dayIndex].ActualWidth;
+
+        double availableWidth = Math.Max(TimeGrid.ActualWidth - 50, 0);
+        return availableWidth > 0 ? availableWidth / DaysInWeek : 140;
+    }
+
     private static bool TryGetResizeDateTime(Windows.Foundation.Point point, EventInteractionState state, out DateTime result)
     {
-        result = GetSnappedDateTime(state.OriginalStart.Date, point.Y);
+        result = GetSnappedDateTime(state.OriginalEnd.Date, point.Y);
         return true;
     }
 
