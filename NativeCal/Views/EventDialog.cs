@@ -14,6 +14,19 @@ namespace NativeCal.Views;
 
 public static class EventDialog
 {
+    public enum EventAction
+    {
+        None,
+        Saved,
+        Deleted
+    }
+
+    public sealed class EventActionResult
+    {
+        public EventAction Action { get; init; }
+        public CalendarEvent? Event { get; init; }
+    }
+
     private static readonly (string Label, int Minutes)[] ReminderOptions =
     {
         ("None", 0),
@@ -84,6 +97,42 @@ public static class EventDialog
     }
 
     /// <summary>
+    /// Shows a details dialog for an existing event and lets the user edit or delete it.
+    /// </summary>
+    public static async Task<EventActionResult> ShowManageDialog(XamlRoot xamlRoot, CalendarEvent existingEvent, FrameworkElement? contextElement = null)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = existingEvent.Title,
+            Content = BuildEventDetailContent(existingEvent, contextElement),
+            PrimaryButtonText = "Edit",
+            SecondaryButtonText = "Delete",
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = xamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            var updated = await ShowEditDialog(xamlRoot, existingEvent);
+            return updated is not null
+                ? new EventActionResult { Action = EventAction.Saved, Event = updated }
+                : new EventActionResult { Action = EventAction.None };
+        }
+
+        if (result == ContentDialogResult.Secondary)
+        {
+            bool confirmed = await ShowDeleteConfirmation(xamlRoot, existingEvent);
+            return confirmed
+                ? new EventActionResult { Action = EventAction.Deleted }
+                : new EventActionResult { Action = EventAction.None };
+        }
+
+        return new EventActionResult { Action = EventAction.None };
+    }
+
+    /// <summary>
     /// Shows confirmation dialog for deleting an event.
     /// </summary>
     public static async Task<bool> ShowDeleteConfirmation(XamlRoot xamlRoot, CalendarEvent evt)
@@ -100,6 +149,58 @@ public static class EventDialog
 
         var result = await dialog.ShowAsync();
         return result == ContentDialogResult.Primary;
+    }
+
+    private static StackPanel BuildEventDetailContent(CalendarEvent evt, FrameworkElement? contextElement)
+    {
+        FrameworkElement? themeElement = contextElement ?? App.MainAppWindow?.Content as FrameworkElement;
+        ElementTheme theme = themeElement is not null
+            ? ThemeResourceHelper.GetEffectiveTheme(themeElement)
+            : ElementTheme.Default;
+
+        var panel = new StackPanel { Spacing = 8 };
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = DateTimeHelper.FormatTimeRange(evt.StartTime, evt.EndTime, evt.IsAllDay),
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"]
+        });
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = evt.StartTime.ToString("dddd, MMMM d, yyyy"),
+            Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
+        });
+
+        if (!string.IsNullOrWhiteSpace(evt.Location))
+        {
+            var locationRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            locationRow.Children.Add(new FontIcon
+            {
+                Glyph = "\uE707",
+                FontSize = 14,
+                Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
+            });
+            locationRow.Children.Add(new TextBlock
+            {
+                Text = evt.Location,
+                Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
+            });
+            panel.Children.Add(locationRow);
+        }
+
+        if (!string.IsNullOrWhiteSpace(evt.Description))
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = evt.Description,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0),
+                Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
+            });
+        }
+
+        return panel;
     }
 
     /// <summary>

@@ -377,6 +377,11 @@ public sealed partial class MainWindow : Window
         SidebarCalendar.SetDisplayDate(new DateTimeOffset(_currentDate));
     }
 
+    public void RefreshCurrentViewData()
+    {
+        RefreshCurrentView();
+    }
+
     // ── Public navigation for child pages ───────────────────────────────
 
     /// <summary>

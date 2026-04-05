@@ -369,15 +369,18 @@ public sealed partial class MonthViewPage : Page
         if (sender is not Border chip || chip.Tag is not CalendarEventViewModel evt)
             return;
 
-        var dialog = new ContentDialog
-        {
-            Title = evt.Title,
-            Content = BuildEventDetailContent(evt, chip),
-            CloseButtonText = "Close",
-            XamlRoot = chip.XamlRoot
-        };
+        var result = await EventDialog.ShowManageDialog(chip.XamlRoot, evt.ToModel(), chip);
 
-        await dialog.ShowAsync();
+        if (result.Action == EventDialog.EventAction.Saved && result.Event is not null)
+        {
+            await App.Database.SaveEventAsync(result.Event);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
+        else if (result.Action == EventDialog.EventAction.Deleted)
+        {
+            await App.Database.DeleteEventAsync(evt.Id);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
     }
 
     /// <summary>

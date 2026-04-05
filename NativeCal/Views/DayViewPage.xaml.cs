@@ -478,22 +478,20 @@ public sealed partial class DayViewPage : Page
         if (sender is not FrameworkElement fe || fe.Tag is not CalendarEventViewModel evt)
             return;
 
-        var dialog = new ContentDialog
-        {
-            Title = "Edit Event",
-            Content = BuildEventDetailContent(evt, fe),
-            PrimaryButtonText = "Edit",
-            CloseButtonText = "Close",
-            XamlRoot = DialogXamlRootHelper.Resolve(TimeGrid, AllDayPanel, TodayCircle)
-        };
+        var result = await EventDialog.ShowManageDialog(
+            DialogXamlRootHelper.Resolve(TimeGrid, AllDayPanel, TodayCircle),
+            evt.ToModel(),
+            fe);
 
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+        if (result.Action == EventDialog.EventAction.Saved && result.Event is not null)
         {
-            // Reload after potential edit
-            await ViewModel.LoadDayCommand.ExecuteAsync(ViewModel.CurrentDate);
-            UpdateDayDisplay();
-            ShowCurrentTimeIndicator();
+            await App.Database.SaveEventAsync(result.Event);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
+        else if (result.Action == EventDialog.EventAction.Deleted)
+        {
+            await App.Database.DeleteEventAsync(evt.Id);
+            App.MainAppWindow?.RefreshCurrentViewData();
         }
     }
 

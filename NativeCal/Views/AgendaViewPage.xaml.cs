@@ -287,21 +287,20 @@ public sealed partial class AgendaViewPage : Page
             });
         }
 
-        var dialog = new ContentDialog
-        {
-            Title = "Event Details",
-            Content = detailPanel,
-            PrimaryButtonText = "Edit",
-            CloseButtonText = "Close",
-            XamlRoot = DialogXamlRootHelper.Resolve(AgendaPanel, EmptyState, LoadingRing)
-        };
+        var result = await EventDialog.ShowManageDialog(
+            DialogXamlRootHelper.Resolve(AgendaPanel, EmptyState, LoadingRing),
+            evt.ToModel(),
+            this);
 
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+        if (result.Action == EventDialog.EventAction.Saved && result.Event is not null)
         {
-            // Reload after potential edit
-            await ViewModel.LoadAgendaCommand.ExecuteAsync(null);
-            BuildAgendaList();
+            await App.Database.SaveEventAsync(result.Event);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
+        else if (result.Action == EventDialog.EventAction.Deleted)
+        {
+            await App.Database.DeleteEventAsync(evt.Id);
+            App.MainAppWindow?.RefreshCurrentViewData();
         }
     }
 

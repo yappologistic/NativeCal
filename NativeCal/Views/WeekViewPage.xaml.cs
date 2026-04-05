@@ -481,15 +481,18 @@ public sealed partial class WeekViewPage : Page
         if (sender is not Border block || block.Tag is not CalendarEventViewModel evt)
             return;
 
-        var dialog = new ContentDialog
-        {
-            Title = evt.Title,
-            Content = BuildEventDetailContent(evt, block),
-            CloseButtonText = "Close",
-            XamlRoot = block.XamlRoot
-        };
+        var result = await EventDialog.ShowManageDialog(block.XamlRoot, evt.ToModel(), block);
 
-        await dialog.ShowAsync();
+        if (result.Action == EventDialog.EventAction.Saved && result.Event is not null)
+        {
+            await App.Database.SaveEventAsync(result.Event);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
+        else if (result.Action == EventDialog.EventAction.Deleted)
+        {
+            await App.Database.DeleteEventAsync(evt.Id);
+            App.MainAppWindow?.RefreshCurrentViewData();
+        }
     }
 
     /// <summary>
