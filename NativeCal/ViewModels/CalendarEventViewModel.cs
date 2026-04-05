@@ -45,6 +45,12 @@ public partial class CalendarEventViewModel : ObservableObject
     [ObservableProperty]
     private int reminderMinutes;
 
+    [ObservableProperty]
+    private bool isReadOnly;
+
+    [ObservableProperty]
+    private bool isOfficialHoliday;
+
     /// <summary>
     /// Formatted time range display, e.g. "9:00 AM - 10:30 AM" or "All Day".
     /// </summary>
@@ -100,6 +106,8 @@ public partial class CalendarEventViewModel : ObservableObject
         colorHex = evt.ColorHex;
         recurrenceRule = evt.RecurrenceRule;
         reminderMinutes = evt.ReminderMinutes;
+        isReadOnly = evt.IsReadOnly;
+        isOfficialHoliday = evt.IsOfficialHoliday;
     }
 
     /// <summary>
@@ -121,7 +129,9 @@ public partial class CalendarEventViewModel : ObservableObject
             RecurrenceRule = RecurrenceRule,
             ReminderMinutes = ReminderMinutes,
             CreatedAt = _event.CreatedAt,
-            ModifiedAt = DateTime.UtcNow
+            ModifiedAt = DateTime.UtcNow,
+            IsReadOnly = IsReadOnly,
+            IsOfficialHoliday = IsOfficialHoliday
         };
     }
 

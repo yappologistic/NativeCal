@@ -69,7 +69,14 @@ public partial class DayViewModel : ObservableObject
                 CurrentDate = date.Value.Date;
             }
 
-            List<CalendarEvent> dayEvents = await App.Database.GetEventsForDateAsync(CurrentDate);
+            var calendars = await App.Database.GetCalendarsAsync();
+            var visibleCalendarIds = calendars.Where(c => c.IsVisible).Select(c => c.Id).ToHashSet();
+
+            List<CalendarEvent> dayEvents = (await App.Database.GetEventsForDateAsync(CurrentDate))
+                .Where(e => visibleCalendarIds.Contains(e.CalendarId))
+                .ToList();
+
+            dayEvents.AddRange(await App.HolidayService.GetHolidayEventsAsync(CurrentDate.Date, CurrentDate.Date.AddDays(1), calendars));
 
             var timedEvents = dayEvents
                 .Where(e => !e.IsAllDay)

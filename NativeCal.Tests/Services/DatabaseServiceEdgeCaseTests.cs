@@ -205,8 +205,8 @@ public class DatabaseServiceEdgeCaseTests : TestBase
         }
 
         var calendars = await Db.GetCalendarsAsync();
-        // 3 defaults + 5 new = 8
-        Assert.Equal(8, calendars.Count);
+        // 5 seeded calendars + 5 new = 10
+        Assert.Equal(10, calendars.Count);
     }
 
     [Fact]

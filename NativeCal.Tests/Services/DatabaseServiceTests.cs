@@ -15,10 +15,12 @@ public class DatabaseServiceTests : TestBase
     {
         var calendars = await Db.GetCalendarsAsync();
 
-        Assert.Equal(3, calendars.Count);
+        Assert.Equal(5, calendars.Count);
         Assert.Contains(calendars, c => c.Name == "Personal" && c.IsDefault);
         Assert.Contains(calendars, c => c.Name == "Work");
         Assert.Contains(calendars, c => c.Name == "Family");
+        Assert.Contains(calendars, c => c.Name == "US Holidays");
+        Assert.Contains(calendars, c => c.Name == "Canada Holidays");
     }
 
     [Fact]
@@ -28,7 +30,7 @@ public class DatabaseServiceTests : TestBase
         await Db.InitializeAsync();
 
         var calendars = await Db.GetCalendarsAsync();
-        Assert.Equal(3, calendars.Count);
+        Assert.Equal(5, calendars.Count);
     }
 
     [Fact]
@@ -358,7 +360,7 @@ public class DatabaseServiceTests : TestBase
         Assert.True(id > 0);
 
         var calendars = await Db.GetCalendarsAsync();
-        Assert.Equal(4, calendars.Count);
+        Assert.Equal(6, calendars.Count);
         Assert.Contains(calendars, c => c.Name == "Test Calendar");
     }
 
@@ -384,7 +386,7 @@ public class DatabaseServiceTests : TestBase
         await Db.DeleteCalendarAsync(toDelete.Id);
 
         var remaining = await Db.GetCalendarsAsync();
-        Assert.Equal(2, remaining.Count);
+        Assert.Equal(4, remaining.Count);
         Assert.DoesNotContain(remaining, c => c.Id == toDelete.Id);
     }
 

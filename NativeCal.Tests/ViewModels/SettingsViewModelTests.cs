@@ -21,7 +21,7 @@ public class SettingsViewModelTests : TestBase
         Assert.Equal(2, viewModel.SelectedThemeIndex);
         Assert.Equal(0, viewModel.DefaultReminderMinutes);
         Assert.Equal(6, viewModel.FirstDayOfWeekIndex);
-        Assert.Equal(3, viewModel.Calendars.Count);
+        Assert.Equal(5, viewModel.Calendars.Count);
     }
 
     [Fact]
@@ -66,8 +66,8 @@ public class SettingsViewModelTests : TestBase
 
         var calendars = await Db.GetCalendarsAsync();
 
-        Assert.Equal(ColorHelper.CalendarColors[3], calendars[3].ColorHex);
-        Assert.Equal(ColorHelper.CalendarColors[0], calendars[^1].ColorHex);
+        Assert.Equal(ColorHelper.CalendarColors[5], calendars[5].ColorHex);
+        Assert.Equal(ColorHelper.CalendarColors[2], calendars[^1].ColorHex);
     }
 
     [Fact]
@@ -80,11 +80,11 @@ public class SettingsViewModelTests : TestBase
 
         await viewModel.DeleteCalendarCommand.ExecuteAsync(defaultCalendar);
 
-        Assert.Equal(2, viewModel.Calendars.Count);
+        Assert.Equal(4, viewModel.Calendars.Count);
         Assert.Single(viewModel.Calendars, c => c.IsDefault);
 
         var calendarsInDatabase = await Db.GetCalendarsAsync();
-        Assert.Equal(2, calendarsInDatabase.Count);
+        Assert.Equal(4, calendarsInDatabase.Count);
         Assert.Single(calendarsInDatabase, c => c.IsDefault);
     }
 }

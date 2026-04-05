@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using NativeCal.Services;
@@ -21,11 +22,13 @@ public abstract class TestBase : IAsyncLifetime
         Db = new DatabaseService(_dbPath);
         await Db.InitializeAsync();
         App.Database = Db;
+        App.HolidayService = new HolidayService((_, _) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(Array.Empty<HolidayService.HolidayRecord>()));
     }
 
     public Task DisposeAsync()
     {
         App.Database = null!;
+        App.HolidayService = new HolidayService((_, _) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(Array.Empty<HolidayService.HolidayRecord>()));
         // Clean up the temp database file
         try
         {

@@ -116,22 +116,14 @@ public class DatabaseServiceRegressionTests : TestBase
     }
 
     [Fact]
-    public async Task DeleteCalendarAsync_DoesNotDeleteTheLastRemainingCalendar()
+    public async Task DeleteCalendarAsync_DoesNotDeleteProtectedHolidayCalendars()
     {
-        var calendars = await Db.GetCalendarsAsync();
+        var holidayCalendar = Assert.Single(await Db.GetCalendarsAsync(), c => c.Name == "US Holidays");
 
-        foreach (var calendar in calendars.Where(c => !c.IsDefault).ToList())
-        {
-            await Db.DeleteCalendarAsync(calendar.Id);
-        }
-
-        var lastCalendar = Assert.Single(await Db.GetCalendarsAsync());
-
-        await Db.DeleteCalendarAsync(lastCalendar.Id);
+        await Db.DeleteCalendarAsync(holidayCalendar.Id);
 
         var remaining = await Db.GetCalendarsAsync();
-        Assert.Single(remaining);
-        Assert.Equal(lastCalendar.Id, remaining[0].Id);
+        Assert.Contains(remaining, c => c.Id == holidayCalendar.Id);
     }
 
     [Fact]
@@ -143,7 +135,7 @@ public class DatabaseServiceRegressionTests : TestBase
 
         var remaining = await Db.GetCalendarsAsync();
 
-        Assert.Equal(2, remaining.Count);
+        Assert.Equal(4, remaining.Count);
         Assert.Single(remaining, c => c.IsDefault);
         Assert.DoesNotContain(remaining, c => c.Id == defaultCalendar.Id);
     }

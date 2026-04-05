@@ -25,8 +25,11 @@
   <ItemGroup>
     <Compile Include="..\NativeCal\Models\*.cs" LinkBase="Models" />
     <Compile Include="..\NativeCal\Services\*.cs" LinkBase="Services" />
+    <Compile Include="..\NativeCal\Helpers\CalendarCatalogHelper.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\Helpers\CalendarDisplayHelper.cs" LinkBase="Helpers" />
+    <Compile Include="..\NativeCal\Helpers\CalendarEventMutationHelper.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\Helpers\DateTimeHelper.cs" LinkBase="Helpers" />
+    <Compile Include="..\NativeCal\Helpers\EventLayoutHelper.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\ViewModels\AgendaViewModel.cs" LinkBase="ViewModels" />
     <Compile Include="..\NativeCal\ViewModels\CalendarEventViewModel.cs" LinkBase="ViewModels" />
     <Compile Include="..\NativeCal\ViewModels\DayViewModel.cs" LinkBase="ViewModels" />

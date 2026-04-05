@@ -60,7 +60,14 @@ public partial class MonthViewModel : ObservableObject
             DateTime gridStart = DateTimeHelper.GetCalendarGridStart(CurrentMonth);
             DateTime gridEnd = DateTimeHelper.GetCalendarGridEnd(CurrentMonth).AddDays(1);
 
-            List<CalendarEvent> events = await App.Database.GetEventsAsync(gridStart, gridEnd);
+            var calendars = await App.Database.GetCalendarsAsync();
+            var visibleCalendarIds = calendars.Where(c => c.IsVisible).Select(c => c.Id).ToHashSet();
+
+            List<CalendarEvent> events = (await App.Database.GetEventsAsync(gridStart, gridEnd))
+                .Where(e => visibleCalendarIds.Contains(e.CalendarId))
+                .ToList();
+
+            events.AddRange(await App.HolidayService.GetHolidayEventsAsync(gridStart, gridEnd, calendars));
 
             var lookup = new Dictionary<DateTime, List<CalendarEvent>>();
             DateTime lastVisibleDay = gridEnd.AddDays(-1);

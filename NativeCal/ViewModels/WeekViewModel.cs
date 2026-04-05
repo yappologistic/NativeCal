@@ -75,7 +75,14 @@ public partial class WeekViewModel : ObservableObject
 
             DateTime weekEnd = WeekStart.AddDays(7);
 
-            List<CalendarEvent> events = await App.Database.GetEventsAsync(WeekStart, weekEnd);
+            var calendars = await App.Database.GetCalendarsAsync();
+            var visibleCalendarIds = calendars.Where(c => c.IsVisible).Select(c => c.Id).ToHashSet();
+
+            List<CalendarEvent> events = (await App.Database.GetEventsAsync(WeekStart, weekEnd))
+                .Where(e => visibleCalendarIds.Contains(e.CalendarId))
+                .ToList();
+
+            events.AddRange(await App.HolidayService.GetHolidayEventsAsync(WeekStart, weekEnd, calendars));
 
             var columns = new ObservableCollection<DayColumn>();
             for (int i = 0; i < 7; i++)

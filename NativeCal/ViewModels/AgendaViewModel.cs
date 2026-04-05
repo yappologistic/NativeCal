@@ -43,7 +43,14 @@ public partial class AgendaViewModel : ObservableObject
             DateTime startDate = DateTime.Today;
             DateTime endDate = startDate.AddDays(DaysToLoad);
 
-            List<CalendarEvent> events = await App.Database.GetEventsAsync(startDate, endDate);
+            var calendars = await App.Database.GetCalendarsAsync();
+            var visibleCalendarIds = calendars.Where(c => c.IsVisible).Select(c => c.Id).ToHashSet();
+
+            List<CalendarEvent> events = (await App.Database.GetEventsAsync(startDate, endDate))
+                .Where(e => visibleCalendarIds.Contains(e.CalendarId))
+                .ToList();
+
+            events.AddRange(await App.HolidayService.GetHolidayEventsAsync(startDate, endDate, calendars));
 
             var grouped = new Dictionary<DateTime, List<CalendarEvent>>();
             DateTime lastAgendaDay = endDate.AddDays(-1);

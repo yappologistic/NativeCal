@@ -215,6 +215,7 @@ public sealed partial class SettingsPage : Page
     private Border BuildCalendarCard(CalendarInfo cal)
     {
         var theme = GetCurrentTheme();
+        bool isProtectedCalendar = CalendarCatalogHelper.IsProtectedCalendar(cal);
 
         // Color indicator circle
         var colorCircle = new Ellipse
@@ -285,7 +286,8 @@ public sealed partial class SettingsPage : Page
             Padding = new Thickness(8),
             VerticalAlignment = VerticalAlignment.Center
         };
-        ToolTipService.SetToolTip(editButton, "Edit calendar");
+        editButton.IsEnabled = !isProtectedCalendar;
+        ToolTipService.SetToolTip(editButton, isProtectedCalendar ? "Official holiday calendars cannot be edited" : "Edit calendar");
         editButton.Click += EditCalendar_Click;
 
         // Delete button (disabled if default)
@@ -300,10 +302,12 @@ public sealed partial class SettingsPage : Page
             Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             BorderThickness = new Thickness(0),
             Padding = new Thickness(8),
-            IsEnabled = !cal.IsDefault,
+            IsEnabled = !cal.IsDefault && !isProtectedCalendar,
             VerticalAlignment = VerticalAlignment.Center
         };
-        ToolTipService.SetToolTip(deleteButton, cal.IsDefault ? "Cannot delete default calendar" : "Delete calendar");
+        ToolTipService.SetToolTip(deleteButton, isProtectedCalendar
+            ? "Official holiday calendars cannot be deleted"
+            : cal.IsDefault ? "Cannot delete default calendar" : "Delete calendar");
         deleteButton.Click += DeleteCalendar_Click;
 
         // Right section: edit + delete buttons

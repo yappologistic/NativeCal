@@ -45,6 +45,12 @@ namespace NativeCal.Models
         [NotNull, Column("ModifiedAt")]
         public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
 
+        [Ignore]
+        public bool IsReadOnly { get; set; }
+
+        [Ignore]
+        public bool IsOfficialHoliday { get; set; }
+
         /// <summary>
         /// Returns a deep copy of this CalendarEvent.
         /// </summary>
@@ -64,7 +70,9 @@ namespace NativeCal.Models
                 RecurrenceRule = this.RecurrenceRule,
                 ReminderMinutes = this.ReminderMinutes,
                 CreatedAt = this.CreatedAt,
-                ModifiedAt = this.ModifiedAt
+                ModifiedAt = this.ModifiedAt,
+                IsReadOnly = this.IsReadOnly,
+                IsOfficialHoliday = this.IsOfficialHoliday
             };
         }
     }

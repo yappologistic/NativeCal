@@ -7,6 +7,7 @@ public partial class App : Application
 {
     public static MainWindow MainAppWindow { get; private set; } = null!;
     public static DatabaseService Database { get; private set; } = null!;
+    public static HolidayService HolidayService { get; private set; } = null!;
 
     public App()
     {
@@ -17,6 +18,7 @@ public partial class App : Application
     {
         Database = new DatabaseService();
         await Database.InitializeAsync();
+        HolidayService = new HolidayService();
 
         MainAppWindow = new MainWindow();
         MainAppWindow.Activate();

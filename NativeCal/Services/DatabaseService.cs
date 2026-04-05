@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using SQLite;
+using NativeCal.Helpers;
 using NativeCal.Models;
 
 namespace NativeCal.Services
@@ -68,6 +69,22 @@ namespace NativeCal.Services
                 {
                     Name = "Family",
                     ColorHex = "#27AE60",
+                    IsVisible = true,
+                    IsDefault = false,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            var calendars = await _db.Table<CalendarInfo>().ToListAsync();
+            foreach (var holidayCalendar in CalendarCatalogHelper.HolidayCalendars)
+            {
+                if (calendars.Any(c => string.Equals(c.Name, holidayCalendar.Name, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                await _db.InsertAsync(new CalendarInfo
+                {
+                    Name = holidayCalendar.Name,
+                    ColorHex = holidayCalendar.ColorHex,
                     IsVisible = true,
                     IsDefault = false,
                     CreatedAt = DateTime.UtcNow
@@ -240,6 +257,9 @@ namespace NativeCal.Services
 
             var calendarToDelete = calendars.FirstOrDefault(c => c.Id == id);
             if (calendarToDelete is null)
+                return;
+
+            if (CalendarCatalogHelper.IsProtectedCalendar(calendarToDelete))
                 return;
 
             if (calendars.Count <= 1)

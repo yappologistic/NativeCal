@@ -126,16 +126,31 @@ public static class EventDialog
     /// </summary>
     public static async Task<EventActionResult> ShowManageDialog(XamlRoot xamlRoot, CalendarEvent existingEvent, FrameworkElement? contextElement = null)
     {
-        var dialog = new ContentDialog
+        ContentDialog dialog;
+        if (existingEvent.IsReadOnly)
         {
-            Title = existingEvent.Title,
-            Content = BuildEventDetailContent(existingEvent, contextElement),
-            PrimaryButtonText = "Edit",
-            SecondaryButtonText = "Delete",
-            CloseButtonText = "Close",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = xamlRoot
-        };
+            dialog = new ContentDialog
+            {
+                Title = existingEvent.Title,
+                Content = BuildEventDetailContent(existingEvent, contextElement),
+                CloseButtonText = "Close",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = xamlRoot
+            };
+        }
+        else
+        {
+            dialog = new ContentDialog
+            {
+                Title = existingEvent.Title,
+                Content = BuildEventDetailContent(existingEvent, contextElement),
+                PrimaryButtonText = "Edit",
+                SecondaryButtonText = "Delete",
+                CloseButtonText = "Close",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = xamlRoot
+            };
+        }
 
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
@@ -559,6 +574,7 @@ public static class EventDialog
         // Track which color border is selected
         Border? selectedColorBorder = null;
         string? selectedColorHex = existing?.ColorHex; // null means "Auto"
+        bool userSelectedCustomColor = false;
 
         // Auto option
         var autoBorder = new Border
@@ -593,6 +609,7 @@ public static class EventDialog
                 selectedColorBorder.BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
             }
             selectedColorHex = null;
+            userSelectedCustomColor = false;
             autoBorder.BorderBrush = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
             selectedColorBorder = autoBorder;
         };
@@ -627,6 +644,7 @@ public static class EventDialog
                     selectedColorBorder.BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
                 }
                 selectedColorHex = capturedHex;
+                userSelectedCustomColor = true;
                 swatch.BorderBrush = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
                 selectedColorBorder = swatch;
             };
@@ -668,6 +686,21 @@ public static class EventDialog
         {
             Content = scrollViewer,
             XamlRoot = xamlRoot
+        };
+
+        calendarCombo.SelectionChanged += (s, e) =>
+        {
+            if (!userSelectedCustomColor)
+            {
+                if (selectedColorBorder != null)
+                {
+                    selectedColorBorder.BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+                }
+
+                selectedColorHex = null;
+                autoBorder.BorderBrush = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+                selectedColorBorder = autoBorder;
+            }
         };
 
         // Validate: disable Save when title is empty or no calendar can be selected.
