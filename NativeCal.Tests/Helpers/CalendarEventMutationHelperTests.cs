@@ -88,4 +88,36 @@ public class CalendarEventMutationHelperTests
 
         Assert.Equal(new DateTime(2026, 4, 6, 1, 0, 0), resized.EndTime);
     }
+
+    [Fact]
+    public void ResizeTimedEvent_CanShrinkMultiDayEventToAnEarlierDay()
+    {
+        var evt = new CalendarEvent
+        {
+            Title = "Conference",
+            StartTime = new DateTime(2026, 4, 5, 22, 0, 0),
+            EndTime = new DateTime(2026, 4, 7, 2, 0, 0),
+            CalendarId = 1
+        };
+
+        var resized = CalendarEventMutationHelper.ResizeTimedEvent(evt, new DateTime(2026, 4, 6, 23, 40, 0));
+
+        Assert.Equal(new DateTime(2026, 4, 6, 23, 45, 0), resized.EndTime);
+    }
+
+    [Fact]
+    public void ResizeTimedEvent_CanExtendMultiDayEventToALaterDay()
+    {
+        var evt = new CalendarEvent
+        {
+            Title = "Conference",
+            StartTime = new DateTime(2026, 4, 5, 22, 0, 0),
+            EndTime = new DateTime(2026, 4, 6, 2, 0, 0),
+            CalendarId = 1
+        };
+
+        var resized = CalendarEventMutationHelper.ResizeTimedEvent(evt, new DateTime(2026, 4, 8, 3, 40, 0));
+
+        Assert.Equal(new DateTime(2026, 4, 8, 3, 45, 0), resized.EndTime);
+    }
 }

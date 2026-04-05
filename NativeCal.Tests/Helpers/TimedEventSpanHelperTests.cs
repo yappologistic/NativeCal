@@ -78,4 +78,48 @@ public class TimedEventSpanHelperTests
         Assert.Equal(eventStart, segmentStart);
         Assert.Equal(eventEnd, segmentEnd);
     }
+
+    [Fact]
+    public void ResolveResizeTargetDateTime_PreservesOriginalEndDateForSameDayEvents()
+    {
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetDateTime(
+            new DateTime(2026, 4, 15, 9, 0, 0),
+            new DateTime(2026, 4, 15, 10, 0, 0),
+            new DateTime(2026, 4, 18, 11, 30, 0));
+
+        Assert.Equal(new DateTime(2026, 4, 15, 11, 30, 0), resolved);
+    }
+
+    [Fact]
+    public void ResolveResizeTargetDateTime_UsesDraggedDateForMultiDayEvents()
+    {
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetDateTime(
+            new DateTime(2026, 4, 15, 22, 0, 0),
+            new DateTime(2026, 4, 16, 1, 0, 0),
+            new DateTime(2026, 4, 17, 3, 30, 0));
+
+        Assert.Equal(new DateTime(2026, 4, 17, 3, 30, 0), resolved);
+    }
+
+    [Fact]
+    public void FormatSpanTimeRange_IncludesBothDaysAndTimesForMultiDayEvents()
+    {
+        string text = TimedEventSpanHelper.FormatSpanTimeRange(
+            new DateTime(2026, 4, 15, 22, 0, 0),
+            new DateTime(2026, 4, 17, 3, 30, 0),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+        Assert.Equal("Wed 10:00 PM → Fri 3:30 AM", text);
+    }
+
+    [Fact]
+    public void FormatSpanTimeRange_FallsBackToStandardTimeRangeForSameDayEvents()
+    {
+        string text = TimedEventSpanHelper.FormatSpanTimeRange(
+            new DateTime(2026, 4, 15, 9, 0, 0),
+            new DateTime(2026, 4, 15, 10, 30, 0),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+        Assert.Equal("9:00 AM - 10:30 AM", text);
+    }
 }

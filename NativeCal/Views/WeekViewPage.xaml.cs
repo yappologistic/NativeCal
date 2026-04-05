@@ -456,7 +456,7 @@ public sealed partial class WeekViewPage : Page
 
         var timeText = new TextBlock
         {
-            Text = evt.StartTime.ToString("h:mm tt", CultureInfo.CurrentCulture),
+            Text = TimedEventSpanHelper.FormatSpanTimeRange(evt.StartTime, evt.EndTime, CultureInfo.CurrentCulture),
             FontSize = 11,
             Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
             Opacity = 0.8,
@@ -930,9 +930,24 @@ public sealed partial class WeekViewPage : Page
         return availableWidth > 0 ? availableWidth / DaysInWeek : 140;
     }
 
-    private static bool TryGetResizeDateTime(Windows.Foundation.Point point, EventInteractionState state, out DateTime result)
+    private bool TryGetResizeDateTime(Windows.Foundation.Point point, EventInteractionState state, out DateTime result)
     {
-        result = GetSnappedDateTime(state.OriginalEnd.Date, point.Y);
+        DateTime proposedDateTime;
+
+        if (TimedEventSpanHelper.SpansMultipleDays(state.OriginalStart, state.OriginalEnd))
+        {
+            if (!TryGetDateTimeFromWeekPoint(point, out proposedDateTime))
+            {
+                result = default;
+                return false;
+            }
+        }
+        else
+        {
+            proposedDateTime = GetSnappedDateTime(state.OriginalEnd.Date, point.Y);
+        }
+
+        result = TimedEventSpanHelper.ResolveResizeTargetDateTime(state.OriginalStart, state.OriginalEnd, proposedDateTime);
         return true;
     }
 

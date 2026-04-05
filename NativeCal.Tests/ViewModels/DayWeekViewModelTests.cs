@@ -301,6 +301,36 @@ public class DayWeekViewModelTests : TestBase
     }
 
     [Fact]
+    public async Task LoadWeekCommand_ReflectsUpdatedMultiDayTimedEventSpanAndTimeDisplayAfterReload()
+    {
+        var evt = new CalendarEvent
+        {
+            Title = "Migration",
+            StartTime = new DateTime(2026, 4, 6, 22, 0, 0),
+            EndTime = new DateTime(2026, 4, 7, 1, 0, 0),
+            CalendarId = 1
+        };
+
+        await Db.SaveEventAsync(evt);
+
+        var viewModel = new WeekViewModel();
+        await viewModel.LoadWeekCommand.ExecuteAsync(new DateTime(2026, 4, 6));
+
+        evt.EndTime = new DateTime(2026, 4, 8, 3, 30, 0);
+        await Db.SaveEventAsync(evt);
+
+        await viewModel.LoadWeekCommand.ExecuteAsync(new DateTime(2026, 4, 6));
+
+        var monday = Assert.Single(viewModel.DayColumns, c => c.Date == new DateTime(2026, 4, 6));
+        var tuesday = Assert.Single(viewModel.DayColumns, c => c.Date == new DateTime(2026, 4, 7));
+        var wednesday = Assert.Single(viewModel.DayColumns, c => c.Date == new DateTime(2026, 4, 8));
+
+        Assert.Contains(monday.Events, e => e.Title == "Migration" && e.TimeDisplay == "10:00 PM - 3:30 AM");
+        Assert.Contains(tuesday.Events, e => e.Title == "Migration" && e.TimeDisplay == "10:00 PM - 3:30 AM");
+        Assert.Contains(wednesday.Events, e => e.Title == "Migration" && e.TimeDisplay == "10:00 PM - 3:30 AM");
+    }
+
+    [Fact]
     public async Task LoadWeekCommand_OrdersTimedEventsByStartTimeWithinEachDay()
     {
         var weekDate = new DateTime(2026, 4, 6);
