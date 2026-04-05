@@ -117,7 +117,7 @@ public class DatabaseServiceEdgeCaseTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal(fetched.StartTime, fetched.EndTime);
     }
 
@@ -131,8 +131,7 @@ public class DatabaseServiceEdgeCaseTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
-        Assert.NotNull(fetched);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         // The DB stores whatever we give it; validation is the app's responsibility
         Assert.True(fetched.EndTime < fetched.StartTime);
     }
@@ -189,7 +188,7 @@ public class DatabaseServiceEdgeCaseTests : TestBase
             await Db.SaveEventAsync(evt);
         }
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal("V5", fetched.Title);
     }
 

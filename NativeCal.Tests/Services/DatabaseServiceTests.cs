@@ -72,7 +72,7 @@ public class DatabaseServiceTests : TestBase
         evt.Title = "Updated Title";
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal(originalCreatedAt, fetched.CreatedAt);
         Assert.Equal("Updated Title", fetched.Title);
     }
@@ -91,7 +91,7 @@ public class DatabaseServiceTests : TestBase
         evt.Title = "Updated";
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.True(fetched.ModifiedAt >= firstModified);
     }
 
@@ -101,9 +101,8 @@ public class DatabaseServiceTests : TestBase
         var evt = CreateTestEvent(title: "Find Me");
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
 
-        Assert.NotNull(fetched);
         Assert.Equal("Find Me", fetched.Title);
         Assert.Equal(evt.StartTime, fetched.StartTime);
         Assert.Equal(evt.EndTime, fetched.EndTime);
@@ -463,7 +462,7 @@ public class DatabaseServiceTests : TestBase
         var evt = CreateTestEvent(title: longTitle);
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal(longTitle, fetched.Title);
     }
 
@@ -485,7 +484,7 @@ public class DatabaseServiceTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Null(fetched.Description);
         Assert.Null(fetched.Location);
         Assert.Null(fetched.ColorHex);
@@ -503,7 +502,7 @@ public class DatabaseServiceTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.True(fetched.IsAllDay);
     }
 
@@ -515,7 +514,7 @@ public class DatabaseServiceTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal(0, fetched.ReminderMinutes);
     }
 
@@ -527,7 +526,7 @@ public class DatabaseServiceTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal(1440, fetched.ReminderMinutes);
     }
 
@@ -539,7 +538,7 @@ public class DatabaseServiceTests : TestBase
 
         await Db.SaveEventAsync(evt);
 
-        var fetched = await Db.GetEventAsync(evt.Id);
+        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
         Assert.Equal("Weekly", fetched.RecurrenceRule);
     }
 

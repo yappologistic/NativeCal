@@ -82,18 +82,35 @@ namespace NativeCal.Services
         /// </summary>
         public async Task<List<CalendarEvent>> GetEventsAsync(DateTime startDate, DateTime endDate)
         {
-            return await _db.Table<CalendarEvent>()
+            if (endDate <= startDate)
+                return new List<CalendarEvent>();
+
+            var timedEvents = await _db.Table<CalendarEvent>()
                 .Where(e =>
-                    (e.StartTime >= startDate && e.StartTime < endDate) ||
-                    (e.EndTime > startDate && e.EndTime <= endDate) ||
-                    (e.StartTime <= startDate && e.EndTime >= endDate))
+                    !e.IsAllDay &&
+                    ((e.StartTime >= startDate && e.StartTime < endDate) ||
+                     (e.EndTime > startDate && e.EndTime <= endDate) ||
+                     (e.StartTime <= startDate && e.EndTime >= endDate)))
                 .ToListAsync();
+
+            var allDayEvents = await _db.Table<CalendarEvent>()
+                .Where(e => e.IsAllDay)
+                .ToListAsync();
+
+            var overlappingAllDayEvents = allDayEvents
+                .Where(e => e.StartTime.Date < endDate.Date && e.EndTime.Date >= startDate.Date);
+
+            return timedEvents
+                .Concat(overlappingAllDayEvents)
+                .OrderBy(e => e.StartTime)
+                .ThenBy(e => e.Id)
+                .ToList();
         }
 
         /// <summary>
         /// Returns a single event by its primary key.
         /// </summary>
-        public async Task<CalendarEvent> GetEventAsync(int id)
+        public async Task<CalendarEvent?> GetEventAsync(int id)
         {
             return await _db.Table<CalendarEvent>()
                 .Where(e => e.Id == id)
@@ -136,14 +153,7 @@ namespace NativeCal.Services
         public async Task<List<CalendarEvent>> GetEventsForDateAsync(DateTime date)
         {
             var dayStart = date.Date;
-            var dayEnd = dayStart.AddDays(1);
-
-            return await _db.Table<CalendarEvent>()
-                .Where(e =>
-                    (e.StartTime >= dayStart && e.StartTime < dayEnd) ||
-                    (e.EndTime > dayStart && e.EndTime <= dayEnd) ||
-                    (e.StartTime <= dayStart && e.EndTime >= dayEnd))
-                .ToListAsync();
+            return await GetEventsAsync(dayStart, dayStart.AddDays(1));
         }
 
         /// <summary>
@@ -165,10 +175,15 @@ namespace NativeCal.Services
             if (string.IsNullOrWhiteSpace(query))
                 return new List<CalendarEvent>();
 
-            var pattern = $"%{query}%";
+            // Escape LIKE wildcards so user input is treated literally
+            string escaped = query
+                .Replace("\\", "\\\\")
+                .Replace("%", "\\%")
+                .Replace("_", "\\_");
+            var pattern = $"%{escaped}%";
 
             return await _db.QueryAsync<CalendarEvent>(
-                "SELECT * FROM CalendarEvents WHERE Title LIKE ? OR Description LIKE ?",
+                "SELECT * FROM CalendarEvents WHERE Title LIKE ? ESCAPE '\\' OR Description LIKE ? ESCAPE '\\'",
                 pattern, pattern);
         }
 
@@ -205,6 +220,29 @@ namespace NativeCal.Services
         /// </summary>
         public async Task DeleteCalendarAsync(int id)
         {
+            var calendars = (await _db.Table<CalendarInfo>().ToListAsync())
+                .OrderBy(c => c.Id)
+                .ToList();
+
+            var calendarToDelete = calendars.FirstOrDefault(c => c.Id == id);
+            if (calendarToDelete is null)
+                return;
+
+            if (calendars.Count <= 1)
+                return;
+
+            var remainingCalendars = calendars
+                .Where(c => c.Id != id)
+                .OrderBy(c => c.Id)
+                .ToList();
+
+            if (calendarToDelete.IsDefault && !remainingCalendars.Any(c => c.IsDefault))
+            {
+                var replacementDefault = remainingCalendars[0];
+                replacementDefault.IsDefault = true;
+                await _db.UpdateAsync(replacementDefault);
+            }
+
             await _db.ExecuteAsync("DELETE FROM CalendarEvents WHERE CalendarId = ?", id);
             await _db.DeleteAsync<CalendarInfo>(id);
         }
