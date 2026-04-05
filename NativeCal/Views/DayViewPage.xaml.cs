@@ -24,6 +24,7 @@ public sealed partial class DayViewPage : Page
     private Canvas _eventCanvas = null!;
     private readonly DispatcherTimer _timeIndicatorTimer;
     private EventInteractionState? _activeInteraction;
+    private bool _suppressEventTap;
 
     private sealed class EventInteractionState
     {
@@ -36,6 +37,12 @@ public sealed partial class DayViewPage : Page
         public required double OriginalHeight { get; init; }
         public bool IsResizing { get; init; }
         public bool HasMoved { get; set; }
+    }
+
+    private sealed class EventHandleTag
+    {
+        public required Border EventBorder { get; init; }
+        public bool IsResizeHandle { get; init; }
     }
 
     public DayViewModel ViewModel { get; } = new DayViewModel();
@@ -305,18 +312,19 @@ public sealed partial class DayViewPage : Page
 
         var dragHandle = new Border
         {
-            Height = 6,
+            Height = 8,
             Background = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
             CornerRadius = new CornerRadius(4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible
+            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible,
+            IsHitTestVisible = false
         };
 
         var resizeHandle = new Border
         {
-            Height = 6,
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(60, 255, 255, 255)),
-            CornerRadius = new CornerRadius(4),
+            Height = 10,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(80, 255, 255, 255)),
+            CornerRadius = new CornerRadius(5),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Bottom,
             Visibility = evt.IsReadOnly || evt.IsAllDay ? Visibility.Collapsed : Visibility.Visible
@@ -361,17 +369,19 @@ public sealed partial class DayViewPage : Page
             Child = layout
         };
 
-        dragHandle.PointerPressed += EventDragHandle_PointerPressed;
-        dragHandle.PointerMoved += EventDragHandle_PointerMoved;
-        dragHandle.PointerReleased += EventDragHandle_PointerReleased;
-        dragHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
-        dragHandle.Tag = border;
+        if (!evt.IsReadOnly)
+        {
+            border.PointerPressed += EventDragHandle_PointerPressed;
+            border.PointerMoved += EventDragHandle_PointerMoved;
+            border.PointerReleased += EventDragHandle_PointerReleased;
+            border.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+        }
 
         resizeHandle.PointerPressed += EventResizeHandle_PointerPressed;
         resizeHandle.PointerMoved += EventResizeHandle_PointerMoved;
         resizeHandle.PointerReleased += EventResizeHandle_PointerReleased;
         resizeHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
-        resizeHandle.Tag = border;
+        resizeHandle.Tag = new EventHandleTag { EventBorder = border, IsResizeHandle = true };
 
         border.Tapped += EventBlock_Click;
         Canvas.SetTop(border, top);
@@ -380,14 +390,17 @@ public sealed partial class DayViewPage : Page
 
     private void EventDragHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+        if (sender is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+            return;
+
+        if (IsResizeHandleSource(e.OriginalSource as DependencyObject, border))
             return;
 
         _activeInteraction = new EventInteractionState
         {
             Event = evt,
             EventBorder = border,
-            HandleElement = handle,
+            HandleElement = border,
             OriginalStart = evt.StartTime,
             OriginalEnd = evt.EndTime,
             OriginalTop = Canvas.GetTop(border),
@@ -395,13 +408,13 @@ public sealed partial class DayViewPage : Page
             IsResizing = false
         };
 
-        handle.CapturePointer(e.Pointer);
+        border.CapturePointer(e.Pointer);
         e.Handled = true;
     }
 
     private void EventDragHandle_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_activeInteraction is null || _activeInteraction.IsResizing || sender is not FrameworkElement handle)
+        if (_activeInteraction is null || _activeInteraction.IsResizing)
             return;
 
         var point = e.GetCurrentPoint(_eventCanvas).Position;
@@ -417,25 +430,27 @@ public sealed partial class DayViewPage : Page
         if (_activeInteraction is null || _activeInteraction.IsResizing || sender is not FrameworkElement handle)
             return;
 
+        var state = _activeInteraction;
+        _activeInteraction = null;
         handle.ReleasePointerCaptures();
-        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(_eventCanvas).Position, false);
+        await CompleteTimedInteractionAsync(state, e.GetCurrentPoint(_eventCanvas).Position, false);
         e.Handled = true;
     }
 
     private void EventResizeHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+        if (sender is not FrameworkElement handle || handle.Tag is not EventHandleTag tag || tag.EventBorder.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
             return;
 
         _activeInteraction = new EventInteractionState
         {
             Event = evt,
-            EventBorder = border,
+            EventBorder = tag.EventBorder,
             HandleElement = handle,
             OriginalStart = evt.StartTime,
             OriginalEnd = evt.EndTime,
-            OriginalTop = Canvas.GetTop(border),
-            OriginalHeight = border.Height,
+            OriginalTop = Canvas.GetTop(tag.EventBorder),
+            OriginalHeight = tag.EventBorder.Height,
             IsResizing = true
         };
 
@@ -462,8 +477,10 @@ public sealed partial class DayViewPage : Page
         if (_activeInteraction is null || !_activeInteraction.IsResizing || sender is not FrameworkElement handle)
             return;
 
+        var state = _activeInteraction;
+        _activeInteraction = null;
         handle.ReleasePointerCaptures();
-        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(_eventCanvas).Position, true);
+        await CompleteTimedInteractionAsync(state, e.GetCurrentPoint(_eventCanvas).Position, true);
         e.Handled = true;
     }
 
@@ -487,13 +504,13 @@ public sealed partial class DayViewPage : Page
                 ? CalendarEventMutationHelper.ResizeTimedEvent(state.Event.ToModel(), GetDateTimeFromCanvasPoint(pointerPosition.Y))
                 : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), GetDateTimeFromCanvasPoint(pointerPosition.Y));
 
+            _suppressEventTap = true;
             await App.Database.SaveEventAsync(updated);
             App.MainAppWindow?.RefreshCurrentViewData();
         }
         finally
         {
             ResetInteractionVisual(state);
-            _activeInteraction = null;
         }
     }
 
@@ -603,6 +620,12 @@ public sealed partial class DayViewPage : Page
     {
         e.Handled = true;
 
+        if (_suppressEventTap)
+        {
+            _suppressEventTap = false;
+            return;
+        }
+
         if (sender is not FrameworkElement fe || fe.Tag is not CalendarEventViewModel evt)
             return;
 
@@ -703,5 +726,22 @@ public sealed partial class DayViewPage : Page
             await App.Database.SaveEventAsync(createdEvent);
             App.MainAppWindow?.RefreshCurrentViewData();
         }
+    }
+
+    private static bool IsResizeHandleSource(DependencyObject? source, Border eventBorder)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is FrameworkElement element && element.Tag is EventHandleTag tag && tag.IsResizeHandle && ReferenceEquals(tag.EventBorder, eventBorder))
+                return true;
+
+            if (ReferenceEquals(current, eventBorder))
+                break;
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 }

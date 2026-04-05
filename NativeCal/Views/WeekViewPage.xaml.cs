@@ -41,6 +41,7 @@ public sealed partial class WeekViewPage : Page
 
     private bool _isBuilt;
     private EventInteractionState? _activeInteraction;
+    private bool _suppressEventTap;
 
     private sealed class EventInteractionState
     {
@@ -54,6 +55,12 @@ public sealed partial class WeekViewPage : Page
         public required Windows.Foundation.Point StartPoint { get; init; }
         public bool IsResizing { get; init; }
         public bool HasMoved { get; set; }
+    }
+
+    private sealed class EventHandleTag
+    {
+        public required Border EventBorder { get; init; }
+        public bool IsResizeHandle { get; init; }
     }
 
     public WeekViewPage()
@@ -354,7 +361,7 @@ public sealed partial class WeekViewPage : Page
     /// <summary>
     /// Creates a small colored chip for an all-day event in the all-day bar.
     /// </summary>
-    private static Border CreateAllDayChip(CalendarEventViewModel evt)
+    private Border CreateAllDayChip(CalendarEventViewModel evt)
     {
         string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
@@ -420,18 +427,19 @@ public sealed partial class WeekViewPage : Page
 
         var dragHandle = new Border
         {
-            Height = 6,
+            Height = 8,
             Background = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
             CornerRadius = new CornerRadius(4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible
+            Visibility = evt.IsReadOnly ? Visibility.Collapsed : Visibility.Visible,
+            IsHitTestVisible = false
         };
 
         var resizeHandle = new Border
         {
-            Height = 6,
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(60, 255, 255, 255)),
-            CornerRadius = new CornerRadius(4),
+            Height = 10,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(80, 255, 255, 255)),
+            CornerRadius = new CornerRadius(5),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Visibility = evt.IsReadOnly || evt.IsAllDay ? Visibility.Collapsed : Visibility.Visible
         };
@@ -476,13 +484,15 @@ public sealed partial class WeekViewPage : Page
             Child = layout
         };
 
-        dragHandle.Tag = block;
-        dragHandle.PointerPressed += EventDragHandle_PointerPressed;
-        dragHandle.PointerMoved += EventDragHandle_PointerMoved;
-        dragHandle.PointerReleased += EventDragHandle_PointerReleased;
-        dragHandle.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+        if (!evt.IsReadOnly)
+        {
+            block.PointerPressed += EventDragHandle_PointerPressed;
+            block.PointerMoved += EventDragHandle_PointerMoved;
+            block.PointerReleased += EventDragHandle_PointerReleased;
+            block.PointerCaptureLost += EventInteraction_PointerCaptureLost;
+        }
 
-        resizeHandle.Tag = block;
+        resizeHandle.Tag = new EventHandleTag { EventBorder = block, IsResizeHandle = true };
         resizeHandle.PointerPressed += EventResizeHandle_PointerPressed;
         resizeHandle.PointerMoved += EventResizeHandle_PointerMoved;
         resizeHandle.PointerReleased += EventResizeHandle_PointerReleased;
@@ -532,14 +542,17 @@ public sealed partial class WeekViewPage : Page
 
     private void EventDragHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+        if (sender is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+            return;
+
+        if (IsResizeHandleSource(e.OriginalSource as DependencyObject, border))
             return;
 
         _activeInteraction = new EventInteractionState
         {
             Event = evt,
             EventBorder = border,
-            HandleElement = handle,
+            HandleElement = border,
             OriginalStart = evt.StartTime,
             OriginalEnd = evt.EndTime,
             OriginalHeight = border.Height,
@@ -548,7 +561,7 @@ public sealed partial class WeekViewPage : Page
             IsResizing = false
         };
 
-        handle.CapturePointer(e.Pointer);
+        border.CapturePointer(e.Pointer);
         e.Handled = true;
     }
 
@@ -574,25 +587,27 @@ public sealed partial class WeekViewPage : Page
         if (_activeInteraction is null || _activeInteraction.IsResizing || sender is not FrameworkElement handle)
             return;
 
+        var state = _activeInteraction;
+        _activeInteraction = null;
         handle.ReleasePointerCaptures();
-        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(TimeGrid).Position, false);
+        await CompleteTimedInteractionAsync(state, e.GetCurrentPoint(TimeGrid).Position, false);
         e.Handled = true;
     }
 
     private void EventResizeHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement handle || handle.Tag is not Border border || border.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
+        if (sender is not FrameworkElement handle || handle.Tag is not EventHandleTag tag || tag.EventBorder.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
             return;
 
         _activeInteraction = new EventInteractionState
         {
             Event = evt,
-            EventBorder = border,
+            EventBorder = tag.EventBorder,
             HandleElement = handle,
             OriginalStart = evt.StartTime,
             OriginalEnd = evt.EndTime,
-            OriginalHeight = border.Height,
-            OriginalTransform = border.RenderTransform,
+            OriginalHeight = tag.EventBorder.Height,
+            OriginalTransform = tag.EventBorder.RenderTransform,
             StartPoint = e.GetCurrentPoint(TimeGrid).Position,
             IsResizing = true
         };
@@ -619,8 +634,10 @@ public sealed partial class WeekViewPage : Page
         if (_activeInteraction is null || !_activeInteraction.IsResizing || sender is not FrameworkElement handle)
             return;
 
+        var state = _activeInteraction;
+        _activeInteraction = null;
         handle.ReleasePointerCaptures();
-        await CompleteTimedInteractionAsync(_activeInteraction, e.GetCurrentPoint(TimeGrid).Position, true);
+        await CompleteTimedInteractionAsync(state, e.GetCurrentPoint(TimeGrid).Position, true);
         e.Handled = true;
     }
 
@@ -647,17 +664,18 @@ public sealed partial class WeekViewPage : Page
 
             if (!hasDateTime)
                 return;
+
             CalendarEvent updated = isResize
                 ? CalendarEventMutationHelper.ResizeTimedEvent(state.Event.ToModel(), dateTime)
                 : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), dateTime);
 
+            _suppressEventTap = true;
             await App.Database.SaveEventAsync(updated);
             App.MainAppWindow?.RefreshCurrentViewData();
         }
         finally
         {
             ResetInteractionVisual(state);
-            _activeInteraction = null;
         }
     }
 
@@ -710,9 +728,15 @@ public sealed partial class WeekViewPage : Page
     /// <summary>
     /// Shows a detail dialog when an event block or all-day chip is clicked.
     /// </summary>
-    private static async void EventBlock_Tapped(object sender, TappedRoutedEventArgs e)
+    private async void EventBlock_Tapped(object sender, TappedRoutedEventArgs e)
     {
         e.Handled = true;
+
+        if (_suppressEventTap)
+        {
+            _suppressEventTap = false;
+            return;
+        }
 
         if (sender is not Border block || block.Tag is not CalendarEventViewModel evt)
             return;
@@ -780,5 +804,22 @@ public sealed partial class WeekViewPage : Page
         }
 
         return panel;
+    }
+
+    private static bool IsResizeHandleSource(DependencyObject? source, Border eventBorder)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is FrameworkElement element && element.Tag is EventHandleTag tag && tag.IsResizeHandle && ReferenceEquals(tag.EventBorder, eventBorder))
+                return true;
+
+            if (ReferenceEquals(current, eventBorder))
+                break;
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 }

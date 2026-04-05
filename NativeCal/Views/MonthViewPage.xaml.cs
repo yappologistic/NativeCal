@@ -425,15 +425,17 @@ public sealed partial class MonthViewPage : Page
         if (_activeChipDrag is null || sender is not Border chip)
             return;
 
+        var dragState = _activeChipDrag;
+        _activeChipDrag = null;
         chip.ReleasePointerCaptures();
 
         try
         {
-            _suppressChipTap = _activeChipDrag.HasMoved;
+            _suppressChipTap = dragState.HasMoved;
 
-            if (_activeChipDrag.HasMoved && TryGetCellDate(e.GetCurrentPoint(LayoutRoot).Position, out var targetDate) && targetDate.Date != _activeChipDrag.SourceDate.Date)
+            if (dragState.HasMoved && TryGetCellDate(e.GetCurrentPoint(LayoutRoot).Position, out var targetDate) && targetDate.Date != dragState.SourceDate.Date)
             {
-                var updated = CalendarEventMutationHelper.MoveEventToDate(_activeChipDrag.Event.ToModel(), targetDate);
+                var updated = CalendarEventMutationHelper.MoveEventToDate(dragState.Event.ToModel(), targetDate);
                 await App.Database.SaveEventAsync(updated);
                 App.MainAppWindow?.RefreshCurrentViewData();
             }
@@ -442,7 +444,6 @@ public sealed partial class MonthViewPage : Page
         {
             chip.Opacity = 1.0;
             chip.RenderTransform = null;
-            _activeChipDrag = null;
         }
 
         e.Handled = true;
