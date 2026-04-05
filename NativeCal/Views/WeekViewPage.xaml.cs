@@ -53,6 +53,9 @@ public sealed partial class WeekViewPage : Page
         public required double OriginalHeight { get; init; }
         public Transform? OriginalTransform { get; init; }
         public required Windows.Foundation.Point StartPoint { get; init; }
+        public required int OriginalBorderZIndex { get; init; }
+        public required int OriginalCanvasZIndex { get; init; }
+        public Canvas? ParentCanvas { get; init; }
         public bool IsResizing { get; init; }
         public bool HasMoved { get; set; }
     }
@@ -548,6 +551,8 @@ public sealed partial class WeekViewPage : Page
         if (IsResizeHandleSource(e.OriginalSource as DependencyObject, border))
             return;
 
+        var parentCanvas = FindParentCanvas(border);
+
         _activeInteraction = new EventInteractionState
         {
             Event = evt,
@@ -558,8 +563,15 @@ public sealed partial class WeekViewPage : Page
             OriginalHeight = border.Height,
             OriginalTransform = border.RenderTransform,
             StartPoint = e.GetCurrentPoint(TimeGrid).Position,
+            OriginalBorderZIndex = Canvas.GetZIndex(border),
+            OriginalCanvasZIndex = parentCanvas is not null ? Canvas.GetZIndex(parentCanvas) : 0,
+            ParentCanvas = parentCanvas,
             IsResizing = false
         };
+
+        Canvas.SetZIndex(border, 1000);
+        if (parentCanvas is not null)
+            Canvas.SetZIndex(parentCanvas, 1000);
 
         border.CapturePointer(e.Pointer);
         e.Handled = true;
@@ -599,6 +611,8 @@ public sealed partial class WeekViewPage : Page
         if (sender is not FrameworkElement handle || handle.Tag is not EventHandleTag tag || tag.EventBorder.Tag is not CalendarEventViewModel evt || evt.IsReadOnly)
             return;
 
+        var parentCanvas = FindParentCanvas(tag.EventBorder);
+
         _activeInteraction = new EventInteractionState
         {
             Event = evt,
@@ -609,8 +623,15 @@ public sealed partial class WeekViewPage : Page
             OriginalHeight = tag.EventBorder.Height,
             OriginalTransform = tag.EventBorder.RenderTransform,
             StartPoint = e.GetCurrentPoint(TimeGrid).Position,
+            OriginalBorderZIndex = Canvas.GetZIndex(tag.EventBorder),
+            OriginalCanvasZIndex = parentCanvas is not null ? Canvas.GetZIndex(parentCanvas) : 0,
+            ParentCanvas = parentCanvas,
             IsResizing = true
         };
+
+        Canvas.SetZIndex(tag.EventBorder, 1000);
+        if (parentCanvas is not null)
+            Canvas.SetZIndex(parentCanvas, 1000);
 
         handle.CapturePointer(e.Pointer);
         e.Handled = true;
@@ -684,6 +705,9 @@ public sealed partial class WeekViewPage : Page
         state.EventBorder.Opacity = 1.0;
         state.EventBorder.Height = state.OriginalHeight;
         state.EventBorder.RenderTransform = state.OriginalTransform;
+        Canvas.SetZIndex(state.EventBorder, state.OriginalBorderZIndex);
+        if (state.ParentCanvas is not null)
+            Canvas.SetZIndex(state.ParentCanvas, state.OriginalCanvasZIndex);
     }
 
     private bool TryGetDateTimeFromWeekPoint(Windows.Foundation.Point point, out DateTime result)
@@ -804,6 +828,20 @@ public sealed partial class WeekViewPage : Page
         }
 
         return panel;
+    }
+
+    private static Canvas? FindParentCanvas(DependencyObject? element)
+    {
+        DependencyObject? current = element;
+        while (current is not null)
+        {
+            if (current is Canvas canvas)
+                return canvas;
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     private static bool IsResizeHandleSource(DependencyObject? source, Border eventBorder)

@@ -35,6 +35,7 @@ public sealed partial class DayViewPage : Page
         public required DateTime OriginalEnd { get; init; }
         public required double OriginalTop { get; init; }
         public required double OriginalHeight { get; init; }
+        public required int OriginalZIndex { get; init; }
         public bool IsResizing { get; init; }
         public bool HasMoved { get; set; }
     }
@@ -405,9 +406,11 @@ public sealed partial class DayViewPage : Page
             OriginalEnd = evt.EndTime,
             OriginalTop = Canvas.GetTop(border),
             OriginalHeight = border.Height,
+            OriginalZIndex = Canvas.GetZIndex(border),
             IsResizing = false
         };
 
+        Canvas.SetZIndex(border, 1000);
         border.CapturePointer(e.Pointer);
         e.Handled = true;
     }
@@ -451,9 +454,11 @@ public sealed partial class DayViewPage : Page
             OriginalEnd = evt.EndTime,
             OriginalTop = Canvas.GetTop(tag.EventBorder),
             OriginalHeight = tag.EventBorder.Height,
+            OriginalZIndex = Canvas.GetZIndex(tag.EventBorder),
             IsResizing = true
         };
 
+        Canvas.SetZIndex(tag.EventBorder, 1000);
         handle.CapturePointer(e.Pointer);
         e.Handled = true;
     }
@@ -519,6 +524,7 @@ public sealed partial class DayViewPage : Page
         state.EventBorder.Opacity = 1.0;
         state.EventBorder.Height = state.OriginalHeight;
         Canvas.SetTop(state.EventBorder, state.OriginalTop);
+        Canvas.SetZIndex(state.EventBorder, state.OriginalZIndex);
     }
 
     private double SnapCanvasY(double y)

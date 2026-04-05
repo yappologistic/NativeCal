@@ -38,6 +38,9 @@ public sealed partial class MonthViewPage : Page
         public required CalendarEventViewModel Event { get; init; }
         public required DateTime SourceDate { get; init; }
         public required Windows.Foundation.Point StartPoint { get; init; }
+        public Border? SourceCellBorder { get; init; }
+        public required int OriginalChipZIndex { get; init; }
+        public required int OriginalCellZIndex { get; init; }
         public bool HasMoved { get; set; }
     }
 
@@ -389,13 +392,22 @@ public sealed partial class MonthViewPage : Page
         if (sender is not Border chip || chip.Tag is not CalendarEventViewModel evt || chip.DataContext is not DateTime sourceDate)
             return;
 
+        Border? sourceCellBorder = FindContainingCellBorder(chip);
+
         _activeChipDrag = new ChipDragState
         {
             Chip = chip,
             Event = evt,
             SourceDate = sourceDate,
-            StartPoint = e.GetCurrentPoint(LayoutRoot).Position
+            StartPoint = e.GetCurrentPoint(LayoutRoot).Position,
+            SourceCellBorder = sourceCellBorder,
+            OriginalChipZIndex = Canvas.GetZIndex(chip),
+            OriginalCellZIndex = sourceCellBorder is not null ? Canvas.GetZIndex(sourceCellBorder) : 0
         };
+
+        Canvas.SetZIndex(chip, 1000);
+        if (sourceCellBorder is not null)
+            Canvas.SetZIndex(sourceCellBorder, 1000);
 
         chip.CapturePointer(e.Pointer);
         e.Handled = true;
@@ -444,6 +456,9 @@ public sealed partial class MonthViewPage : Page
         {
             chip.Opacity = 1.0;
             chip.RenderTransform = null;
+            Canvas.SetZIndex(chip, dragState.OriginalChipZIndex);
+            if (dragState.SourceCellBorder is not null)
+                Canvas.SetZIndex(dragState.SourceCellBorder, dragState.OriginalCellZIndex);
         }
 
         e.Handled = true;
@@ -455,6 +470,13 @@ public sealed partial class MonthViewPage : Page
         {
             chip.Opacity = 1.0;
             chip.RenderTransform = null;
+        }
+
+        if (_activeChipDrag is not null)
+        {
+            Canvas.SetZIndex(_activeChipDrag.Chip, _activeChipDrag.OriginalChipZIndex);
+            if (_activeChipDrag.SourceCellBorder is not null)
+                Canvas.SetZIndex(_activeChipDrag.SourceCellBorder, _activeChipDrag.OriginalCellZIndex);
         }
 
         _activeChipDrag = null;
@@ -506,6 +528,20 @@ public sealed partial class MonthViewPage : Page
 
         cellDate = default;
         return false;
+    }
+
+    private static Border? FindContainingCellBorder(DependencyObject? source)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is Border border && border.Tag is int)
+                return border;
+
+            current = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     private static bool IsEventChipInteractionSource(DependencyObject? source)
