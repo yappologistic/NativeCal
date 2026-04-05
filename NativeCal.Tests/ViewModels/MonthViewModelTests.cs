@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using NativeCal.Helpers;
 using NativeCal.Models;
 using NativeCal.Services;
 using NativeCal.ViewModels;
@@ -10,6 +12,84 @@ namespace NativeCal.Tests.ViewModels;
 
 public class MonthViewModelTests : TestBase
 {
+    [Fact]
+    public void Constructor_InitializesCurrentMonthAndTitle()
+    {
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var viewModel = new MonthViewModel();
+
+        Assert.Equal(currentMonth, viewModel.CurrentMonth);
+        Assert.Equal(currentMonth.ToString("MMMM yyyy"), viewModel.MonthYearTitle);
+        Assert.Empty(viewModel.DayCells);
+    }
+
+    [Fact]
+    public async Task NextMonthCommand_LoadsNextMonthEventsAndUpdatesCurrentMonth()
+    {
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var nextMonth = currentMonth.AddMonths(1);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Next month event",
+            StartTime = nextMonth.AddDays(4).AddHours(9),
+            EndTime = nextMonth.AddDays(4).AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new MonthViewModel();
+
+        await viewModel.NextMonthCommand.ExecuteAsync(null);
+
+        Assert.Equal(nextMonth, viewModel.CurrentMonth);
+        Assert.Contains(GetCell(viewModel, nextMonth.AddDays(4)).Events, e => e.Title == "Next month event");
+    }
+
+    [Fact]
+    public async Task PreviousMonthCommand_LoadsPreviousMonthEventsAndUpdatesCurrentMonth()
+    {
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var previousMonth = currentMonth.AddMonths(-1);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Previous month event",
+            StartTime = previousMonth.AddDays(9).AddHours(9),
+            EndTime = previousMonth.AddDays(9).AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new MonthViewModel();
+
+        await viewModel.PreviousMonthCommand.ExecuteAsync(null);
+
+        Assert.Equal(previousMonth, viewModel.CurrentMonth);
+        Assert.Contains(GetCell(viewModel, previousMonth.AddDays(9)).Events, e => e.Title == "Previous month event");
+    }
+
+    [Fact]
+    public async Task GoToTodayCommand_ReturnsToCurrentMonthAndLoadsCurrentMonthEvents()
+    {
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Current month event",
+            StartTime = currentMonth.AddDays(2).AddHours(9),
+            EndTime = currentMonth.AddDays(2).AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new MonthViewModel
+        {
+            CurrentMonth = currentMonth.AddMonths(2)
+        };
+
+        await viewModel.GoToTodayCommand.ExecuteAsync(null);
+
+        Assert.Equal(currentMonth, viewModel.CurrentMonth);
+        Assert.Contains(GetCell(viewModel, currentMonth.AddDays(2)).Events, e => e.Title == "Current month event");
+    }
+
     [Fact]
     public async Task LoadMonthCommand_ShowsTimedEventOnEveryVisibleDayItOverlaps()
     {
@@ -145,8 +225,27 @@ public class MonthViewModelTests : TestBase
         Assert.Equal(new[] { "All day", "Early timed", "Late timed" }, titles);
     }
 
+    [Fact]
+    public void DayCell_DateChange_RaisesDerivedPropertyNotifications()
+    {
+        var cell = new MonthViewModel.DayCell();
+        var changes = CaptureChanges(cell);
+
+        cell.Date = DateTime.Today.AddDays(1);
+
+        Assert.Contains(nameof(MonthViewModel.DayCell.DayNumber), changes);
+        Assert.Contains(nameof(MonthViewModel.DayCell.IsToday), changes);
+    }
+
     private static MonthViewModel.DayCell GetCell(MonthViewModel viewModel, DateTime date)
     {
         return Assert.Single(viewModel.DayCells, c => c.Date == date.Date);
+    }
+
+    private static HashSet<string?> CaptureChanges(INotifyPropertyChanged source)
+    {
+        var changes = new HashSet<string?>();
+        source.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        return changes;
     }
 }

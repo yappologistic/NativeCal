@@ -11,6 +11,28 @@ namespace NativeCal.Tests.ViewModels;
 public class AgendaViewModelTests : TestBase
 {
     [Fact]
+    public void Constructor_InitializesDefaultState()
+    {
+        var viewModel = new AgendaViewModel();
+
+        Assert.Equal(30, viewModel.DaysToLoad);
+        Assert.Empty(viewModel.AgendaGroups);
+        Assert.False(viewModel.IsLoading);
+        Assert.False(viewModel.HasNoEvents);
+    }
+
+    [Fact]
+    public async Task LoadAgendaCommand_SetsEmptyStateWhenNoEventsArePresent()
+    {
+        var viewModel = new AgendaViewModel();
+
+        await viewModel.LoadAgendaCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.HasNoEvents);
+        Assert.Empty(viewModel.AgendaGroups);
+    }
+
+    [Fact]
     public async Task LoadAgendaCommand_IncludesTimedEventsThatStartedBeforeTodayWhenTheyStillOverlapToday()
     {
         await Db.SaveEventAsync(new CalendarEvent

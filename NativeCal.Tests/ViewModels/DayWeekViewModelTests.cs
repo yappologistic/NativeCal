@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using NativeCal.Helpers;
 using NativeCal.Models;
 using NativeCal.Services;
 using NativeCal.ViewModels;
@@ -10,6 +12,84 @@ namespace NativeCal.Tests.ViewModels;
 
 public class DayWeekViewModelTests : TestBase
 {
+    [Fact]
+    public void DayViewModel_Constructor_InitializesTodayStateAndHourLabels()
+    {
+        var today = DateTime.Today;
+        var viewModel = new DayViewModel();
+
+        Assert.Equal(today, viewModel.CurrentDate);
+        Assert.Equal(today.ToString("dddd, MMMM d, yyyy"), viewModel.DayTitle);
+        Assert.True(viewModel.IsToday);
+        Assert.Equal(24, viewModel.HourLabels.Count);
+    }
+
+    [Fact]
+    public async Task NextDayCommand_LoadsNextDayEventsAndClearsTodayFlag()
+    {
+        var today = DateTime.Today;
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Tomorrow event",
+            StartTime = today.AddDays(1).AddHours(9),
+            EndTime = today.AddDays(1).AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new DayViewModel();
+
+        await viewModel.NextDayCommand.ExecuteAsync(null);
+
+        Assert.Equal(today.AddDays(1), viewModel.CurrentDate);
+        Assert.False(viewModel.IsToday);
+        Assert.Contains(viewModel.Events, e => e.Title == "Tomorrow event");
+    }
+
+    [Fact]
+    public async Task PreviousDayCommand_LoadsPreviousDayEventsAndClearsTodayFlag()
+    {
+        var today = DateTime.Today;
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Yesterday event",
+            StartTime = today.AddDays(-1).AddHours(9),
+            EndTime = today.AddDays(-1).AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new DayViewModel();
+
+        await viewModel.PreviousDayCommand.ExecuteAsync(null);
+
+        Assert.Equal(today.AddDays(-1), viewModel.CurrentDate);
+        Assert.False(viewModel.IsToday);
+        Assert.Contains(viewModel.Events, e => e.Title == "Yesterday event");
+    }
+
+    [Fact]
+    public async Task GoToTodayCommand_ReturnsToTodayAndLoadsTodayEvents()
+    {
+        var today = DateTime.Today;
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Today event",
+            StartTime = today.AddHours(11),
+            EndTime = today.AddHours(12),
+            CalendarId = 1
+        });
+
+        var viewModel = new DayViewModel
+        {
+            CurrentDate = today.AddDays(5)
+        };
+
+        await viewModel.GoToTodayCommand.ExecuteAsync(null);
+
+        Assert.Equal(today, viewModel.CurrentDate);
+        Assert.True(viewModel.IsToday);
+        Assert.Contains(viewModel.Events, e => e.Title == "Today event");
+    }
+
     [Fact]
     public async Task LoadDayCommand_SplitsTimedAndAllDayEventsAndOrdersTimedEvents()
     {
@@ -100,6 +180,86 @@ public class DayWeekViewModelTests : TestBase
         await viewModel.LoadDayCommand.ExecuteAsync(new DateTime(2026, 7, 1));
 
         Assert.DoesNotContain(viewModel.AllDayEvents, e => e.Title == "Canada Day");
+    }
+
+    [Fact]
+    public void WeekViewModel_Constructor_InitializesCurrentWeekStateAndHourLabels()
+    {
+        var expectedWeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
+        var viewModel = new WeekViewModel();
+
+        Assert.Equal(expectedWeekStart, viewModel.WeekStart);
+        Assert.Equal(24, viewModel.HourLabels.Count);
+        Assert.Empty(viewModel.DayColumns);
+    }
+
+    [Fact]
+    public async Task NextWeekCommand_LoadsNextWeekEventsAndUpdatesWeekStart()
+    {
+        var currentWeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
+        var nextWeekDate = currentWeekStart.AddDays(7);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Next week planning",
+            StartTime = nextWeekDate.AddHours(9),
+            EndTime = nextWeekDate.AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new WeekViewModel();
+
+        await viewModel.NextWeekCommand.ExecuteAsync(null);
+
+        Assert.Equal(nextWeekDate, viewModel.WeekStart);
+        var firstDay = Assert.Single(viewModel.DayColumns, c => c.Date == nextWeekDate);
+        Assert.Contains(firstDay.Events, e => e.Title == "Next week planning");
+    }
+
+    [Fact]
+    public async Task PreviousWeekCommand_LoadsPreviousWeekEventsAndUpdatesWeekStart()
+    {
+        var currentWeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
+        var previousWeekDate = currentWeekStart.AddDays(-7);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Previous week review",
+            StartTime = previousWeekDate.AddHours(14),
+            EndTime = previousWeekDate.AddHours(15),
+            CalendarId = 1
+        });
+
+        var viewModel = new WeekViewModel();
+
+        await viewModel.PreviousWeekCommand.ExecuteAsync(null);
+
+        Assert.Equal(previousWeekDate, viewModel.WeekStart);
+        var firstDay = Assert.Single(viewModel.DayColumns, c => c.Date == previousWeekDate);
+        Assert.Contains(firstDay.Events, e => e.Title == "Previous week review");
+    }
+
+    [Fact]
+    public async Task GoToTodayCommand_ReturnsToCurrentWeekAndLoadsTodayWeekEvents()
+    {
+        var todayWeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "This week event",
+            StartTime = todayWeekStart.AddDays(2).AddHours(9),
+            EndTime = todayWeekStart.AddDays(2).AddHours(10),
+            CalendarId = 1
+        });
+
+        var viewModel = new WeekViewModel
+        {
+            WeekStart = todayWeekStart.AddDays(14)
+        };
+
+        await viewModel.GoToTodayCommand.ExecuteAsync(null);
+
+        Assert.Equal(todayWeekStart, viewModel.WeekStart);
+        Assert.Contains(viewModel.DayColumns.SelectMany(c => c.Events), e => e.Title == "This week event");
     }
 
     [Fact]
@@ -224,5 +384,25 @@ public class DayWeekViewModelTests : TestBase
 
         var day = Assert.Single(viewModel.DayColumns, c => c.Date == new DateTime(2026, 7, 4));
         Assert.DoesNotContain(day.AllDayEvents, e => e.Title == "Independence Day");
+    }
+
+    [Fact]
+    public void DayColumn_DateChange_RaisesDerivedPropertyNotifications()
+    {
+        var viewModel = new WeekViewModel.DayColumn();
+        var changes = CaptureChanges(viewModel);
+
+        viewModel.Date = DateTime.Today.AddDays(1);
+
+        Assert.Contains(nameof(WeekViewModel.DayColumn.DayName), changes);
+        Assert.Contains(nameof(WeekViewModel.DayColumn.DayNumber), changes);
+        Assert.Contains(nameof(WeekViewModel.DayColumn.IsToday), changes);
+    }
+
+    private static HashSet<string?> CaptureChanges(INotifyPropertyChanged source)
+    {
+        var changes = new HashSet<string?>();
+        source.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        return changes;
     }
 }
