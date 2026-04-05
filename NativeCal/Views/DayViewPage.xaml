@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NativeCal.Views.DayViewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="using:NativeCal.Helpers"
+    Background="Transparent"
+    NavigationCacheMode="Required">
+
+    <Page.Resources>
+        <helpers:ColorHexToBrushConverter x:Key="ColorHexToBrushConverter"/>
+    </Page.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- Row 0: Day header showing "Friday, April 4, 2026" with today indicator -->
+        <Grid Grid.Row="0" Padding="16,8" ColumnDefinitions="Auto,*">
+            <!-- Large day number in accent circle if today -->
+            <Grid Width="48" Height="48" VerticalAlignment="Center">
+                <Ellipse x:Name="TodayCircle"
+                         Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                         Visibility="Collapsed"/>
+                <TextBlock x:Name="DayNumberText"
+                           Text="4" FontSize="24" FontWeight="Bold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="0">
+                <TextBlock x:Name="DayNameText" Text="Friday"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="NoWrap"/>
+                <TextBlock x:Name="FullDateText" Text="April 4, 2026"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="NoWrap"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Row 1: All-day events section -->
+        <StackPanel Grid.Row="1" x:Name="AllDayPanel" Padding="56,4,16,4"/>
+
+        <!-- Row 2: Scrollable hour timeline -->
+        <ScrollViewer Grid.Row="2" x:Name="TimeScrollViewer" VerticalScrollBarVisibility="Auto">
+            <Grid x:Name="TimeGrid" ColumnDefinitions="50,*">
+                <!-- Hour labels in Col 0 and event canvas in Col 1 built in code-behind -->
+            </Grid>
+        </ScrollViewer>
+
+    </Grid>
+</Page>

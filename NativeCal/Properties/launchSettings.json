@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "NativeCal (Unpackaged)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

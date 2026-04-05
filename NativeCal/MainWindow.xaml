@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="NativeCal.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="NativeCal">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <!--
+        Layout strategy: NavigationView spans the full window as a background layer
+        providing the pane (sidebar). A separate Grid overlays Column 1 (the content
+        area) with the header bar and a ContentControl that hosts pages directly.
+        Unlike Frame, ContentControl passes finite width from the Grid column to its
+        content during layout, fixing the infinite-width measurement bug.
+    -->
+    <Grid x:Name="RootGrid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="PaneColumn" Width="48" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Layer 0: NavigationView spanning both columns (provides pane + backdrop) -->
+        <NavigationView
+            x:Name="NavView"
+            Grid.ColumnSpan="2"
+            PaneDisplayMode="Left"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="True"
+            IsSettingsVisible="False"
+            OpenPaneLength="320"
+            IsPaneOpen="False"
+            Background="Transparent"
+            SelectionChanged="NavView_SelectionChanged"
+            PaneOpening="NavView_PaneOpening"
+            PaneClosing="NavView_PaneClosing">
+
+            <!-- ── Menu Items ─────────────────────────────────────── -->
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Month" Tag="month">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE787;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Week" Tag="week">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8C0;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Day" Tag="day">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8BF;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Agenda" Tag="agenda">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A0;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <!-- ── Footer Menu Items ──────────────────────────────── -->
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem Content="Settings" Tag="settings">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Setting" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <!-- ── Pane Footer (Mini calendar + Calendar list) ────── -->
+            <NavigationView.PaneFooter>
+                <StackPanel x:Name="PaneFooterPanel" Margin="0,0,0,8" Visibility="Collapsed">
+
+                    <!-- Sidebar mini calendar -->
+                    <CalendarView
+                        x:Name="SidebarCalendar"
+                        SelectionMode="Single"
+                        DisplayMode="Month"
+                        IsTodayHighlighted="True"
+                        IsOutOfScopeEnabled="True"
+                        HorizontalAlignment="Stretch"
+                        Height="290"
+                        Margin="4,0,4,8"
+                        SelectedDatesChanged="SidebarCalendar_SelectedDatesChanged" />
+
+                    <!-- Calendars header -->
+                    <TextBlock
+                        Text="Calendars"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Margin="16,4,0,4" />
+
+                    <!-- Calendar toggle list (populated in code-behind) -->
+                    <StackPanel x:Name="CalendarListPanel" Margin="16,0,16,0" />
+
+                </StackPanel>
+            </NavigationView.PaneFooter>
+
+        </NavigationView>
+
+        <!-- Layer 1: Content area in Column 1 (overlays NavView's empty content area) -->
+        <Grid x:Name="ContentAreaGrid" Grid.Column="1" RowDefinitions="Auto,*"
+              SizeChanged="ContentAreaGrid_SizeChanged">
+
+            <!-- Row 0: Header bar (also serves as title bar drag region) -->
+            <Grid x:Name="HeaderBarGrid" Grid.Row="0" Padding="12,12,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="40" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition x:Name="CaptionButtonColumn" Width="140" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Transparent drag region spanning the title column -->
+                <Border x:Name="AppTitleBar" Grid.Column="3" Background="Transparent" />
+
+                <!-- Navigate back -->
+                <Button
+                    x:Name="BackButton"
+                    Grid.Column="0"
+                    Click="NavigateBack_Click"
+                    ToolTipService.ToolTip="Previous"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="8"
+                    VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE76B;" FontSize="14" />
+                </Button>
+
+                <!-- Navigate forward -->
+                <Button
+                    x:Name="ForwardButton"
+                    Grid.Column="1"
+                    Click="NavigateForward_Click"
+                    ToolTipService.ToolTip="Next"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="8"
+                    Margin="0,0,8,0"
+                    VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE76C;" FontSize="14" />
+                </Button>
+
+                <!-- Today button -->
+                <Button
+                    x:Name="TodayButton"
+                    Grid.Column="2"
+                    Content="Today"
+                    Click="TodayButton_Click"
+                    VerticalAlignment="Center"
+                    Margin="0,0,16,0" />
+
+                <!-- Header title (e.g. "April 2026") -->
+                <TextBlock
+                    x:Name="HeaderTitle"
+                    Grid.Column="3"
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="False"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    Text="April 2026" />
+
+                <!-- New Event button -->
+                <Button
+                    x:Name="NewEventButton"
+                    Grid.Column="4"
+                    Click="NewEventButton_Click"
+                    Style="{StaticResource AccentButtonStyle}"
+                    VerticalAlignment="Center"
+                    Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xEA3A;" FontSize="16" />
+                        <TextBlock x:Name="NewEventText" Text="New Event" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Row 1: Plain Grid hosts the page root element directly.
+                 A Grid child in a * column is ALWAYS measured with the finite
+                 column width — no ContentPresenter intermediate that leaks infinity.
+                 The single * row/column guarantees the child fills the available space. -->
+            <Grid x:Name="ContentHost" Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+
+        </Grid>
+
+    </Grid>
+</Window>

@@ -1,0 +1,21 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# IDE and user-specific files
+.vs/
+*.user
+*.rsuser
+*.suo
+
+# Logs and local diagnostics
+*.log
+debug-sizes.txt
+dpi-debug.txt
+xaml_stdout.txt
+xaml_stderr.txt
+NativeCal/xaml_stdout.txt
+NativeCal/xaml_stderr.txt
+
+# Local tool/cache state
+~/
