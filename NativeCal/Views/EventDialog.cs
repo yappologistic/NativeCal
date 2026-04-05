@@ -197,6 +197,28 @@ public static class EventDialog
             Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
         });
 
+        string calendarColorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
+        string calendarName = MainWindow.CurrentInstance?.GetCalendarDisplayName(evt.CalendarId)
+            ?? App.MainAppWindow?.GetCalendarDisplayName(evt.CalendarId)
+            ?? "Calendar";
+
+        var calendarRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        calendarRow.Children.Add(new Ellipse
+        {
+            Width = 10,
+            Height = 10,
+            Fill = ColorHelper.ToBrush(calendarColorHex),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        calendarRow.Children.Add(new TextBlock
+        {
+            Text = calendarName,
+            Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme)
+        });
+        panel.Children.Add(calendarRow);
+
         if (!string.IsNullOrWhiteSpace(evt.Location))
         {
             var locationRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };

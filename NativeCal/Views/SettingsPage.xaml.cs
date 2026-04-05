@@ -375,6 +375,7 @@ public sealed partial class SettingsPage : Page
 
             await App.Database.SaveCalendarAsync(newCal);
             await LoadCalendarListAsync();
+            App.MainAppWindow?.ReloadCalendarMetadata();
         }
     }
 
@@ -407,6 +408,7 @@ public sealed partial class SettingsPage : Page
 
             await App.Database.SaveCalendarAsync(cal);
             await LoadCalendarListAsync();
+            App.MainAppWindow?.ReloadCalendarMetadata();
         }
     }
 
@@ -452,6 +454,7 @@ public sealed partial class SettingsPage : Page
             }
 
             await LoadCalendarListAsync();
+            App.MainAppWindow?.ReloadCalendarMetadata();
         }
     }
 

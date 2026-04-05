@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.UI;
@@ -18,6 +19,8 @@ namespace NativeCal;
 
 public sealed partial class MainWindow : Window
 {
+    public static MainWindow? CurrentInstance { get; private set; }
+
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);
 
@@ -61,11 +64,14 @@ public sealed partial class MainWindow : Window
     // Root element cache — extracted from pages to bypass Page's infinite-width measurement.
     private readonly Dictionary<string, UIElement> _rootElements = new();
 
+    private Dictionary<int, CalendarInfo> _calendarLookup = new();
+
     // Track current view tag
     private string _currentViewTag = "month";
 
     public MainWindow()
     {
+        CurrentInstance = this;
         this.InitializeComponent();
 
         // Extend content into the title bar for seamless Mica integration
@@ -375,11 +381,28 @@ public sealed partial class MainWindow : Window
 
         // Sync the sidebar mini-calendar to the new date
         SidebarCalendar.SetDisplayDate(new DateTimeOffset(_currentDate));
+
+        _ = LoadCalendarListAsync();
     }
 
     public void RefreshCurrentViewData()
     {
         RefreshCurrentView();
+    }
+
+    public string GetEventDisplayColorHex(int calendarId, string? eventColorHex)
+    {
+        return CalendarDisplayHelper.ResolveEventColorHex(calendarId, eventColorHex, _calendarLookup);
+    }
+
+    public string GetCalendarDisplayName(int calendarId)
+    {
+        return CalendarDisplayHelper.ResolveCalendarName(calendarId, _calendarLookup);
+    }
+
+    public void ReloadCalendarMetadata()
+    {
+        _ = LoadCalendarListAsync();
     }
 
     // ── Public navigation for child pages ───────────────────────────────
@@ -445,6 +468,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        _calendarLookup = calendars.ToDictionary(c => c.Id);
+
         CalendarListPanel.Children.Clear();
 
         foreach (var cal in calendars)
@@ -502,6 +527,7 @@ public sealed partial class MainWindow : Window
 
         target.IsVisible = cb.IsChecked == true;
         await App.Database.SaveCalendarAsync(target);
+        _calendarLookup[calendarId] = target;
 
         // Refresh the current view so hidden/shown calendars take effect
         RefreshCurrentView();

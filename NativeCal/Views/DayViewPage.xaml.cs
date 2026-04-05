@@ -186,7 +186,9 @@ public sealed partial class DayViewPage : Page
 
     private Border CreateAllDayEventBar(CalendarEventViewModel evt)
     {
-        string colorHex = evt.ColorHex ?? ColorHelper.CalendarColors[0];
+        string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
         var brush = ColorHelper.ToBrush(colorHex);
 
         var titleBlock = new TextBlock
@@ -261,7 +263,9 @@ public sealed partial class DayViewPage : Page
 
     private Border CreateEventBlock(CalendarEventViewModel evt, double width, double height)
     {
-        string colorHex = evt.ColorHex ?? ColorHelper.CalendarColors[0];
+        string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
         var color = ColorHelper.FromHex(colorHex);
         var bgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(220, color.R, color.G, color.B));
 

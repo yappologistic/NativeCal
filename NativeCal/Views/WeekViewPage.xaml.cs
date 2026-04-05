@@ -323,7 +323,9 @@ public sealed partial class WeekViewPage : Page
     /// </summary>
     private static Border CreateAllDayChip(CalendarEventViewModel evt)
     {
-        string colorHex = evt.ColorHex ?? ColorHelper.CalendarColors[0];
+        string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
         try { bgBrush = ColorHelper.ToBrush(colorHex); }
         catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }
@@ -356,7 +358,9 @@ public sealed partial class WeekViewPage : Page
     /// </summary>
     private Border CreateTimedEventBlock(CalendarEventViewModel evt)
     {
-        string colorHex = evt.ColorHex ?? ColorHelper.CalendarColors[0];
+        string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
         try { bgBrush = ColorHelper.ToBrush(colorHex); }
         catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }

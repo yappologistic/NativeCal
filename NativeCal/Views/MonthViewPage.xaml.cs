@@ -305,7 +305,9 @@ public sealed partial class MonthViewPage : Page
     /// </summary>
     private static Border CreateEventChip(CalendarEventViewModel evt)
     {
-        string colorHex = evt.ColorHex ?? ColorHelper.CalendarColors[0];
+        string colorHex = MainWindow.CurrentInstance?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
+            ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
         try
         {
