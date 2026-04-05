@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.UI;
@@ -71,6 +72,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         Title = "NativeCal";
+        ApplyWindowIcon();
 
         // Size and center the window
         SizeAndCenterWindow(1100, 750);
@@ -183,6 +185,19 @@ public sealed partial class MainWindow : Window
         int y = (workArea.Height - scaledHeight) / 2 + workArea.Y;
 
         appWindow.MoveAndResize(new RectInt32(x, y, scaledWidth, scaledHeight));
+    }
+
+    private void ApplyWindowIcon()
+    {
+        var hwnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+        string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Native-Cal-windows.ico");
+
+        if (File.Exists(iconPath))
+        {
+            appWindow.SetIcon(iconPath);
+        }
     }
 
     private void SetMinWindowSize(int minWidthDips, int minHeightDips)

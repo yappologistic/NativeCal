@@ -13,12 +13,17 @@ namespace NativeCal.Services
         private SQLiteAsyncConnection _db = null!;
         private readonly string _dbPath;
 
-        public DatabaseService()
-        {
-            _dbPath = Path.Combine(
+        public DatabaseService() : this(
+            Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "NativeCal",
-                "nativecal.db");
+                "nativecal.db"))
+        {
+        }
+
+        public DatabaseService(string dbPath)
+        {
+            _dbPath = dbPath ?? throw new ArgumentNullException(nameof(dbPath));
         }
 
         public async Task InitializeAsync()

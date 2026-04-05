@@ -4,6 +4,7 @@
 
 # IDE and user-specific files
 .vs/
+.dotnet/
 *.user
 *.rsuser
 *.suo
