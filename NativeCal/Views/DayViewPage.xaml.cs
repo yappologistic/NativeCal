@@ -288,8 +288,10 @@ public sealed partial class DayViewPage : Page
             _eventCanvas.Children.Add(block);
         }
 
-        // Make event blocks receive taps
-        _eventCanvas.IsHitTestVisible = true;
+        // Enable hit-testing on the canvas only when it contains event blocks.
+        // When empty, keep it disabled so taps pass through to the time-slot
+        // click targets beneath the canvas.
+        _eventCanvas.IsHitTestVisible = _eventCanvas.Children.Count > 0;
     }
 
     private Border CreateEventBlock(CalendarEventViewModel evt, double width, double height, double top)
