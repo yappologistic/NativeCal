@@ -262,6 +262,9 @@ namespace NativeCal.Services
 
         /// <summary>
         /// Deletes a calendar and all events that belong to it.
+        /// Protected calendars (holidays) cannot be deleted.
+        /// At least one non-protected calendar must remain after deletion.
+        /// If the deleted calendar was the default, another is promoted.
         /// </summary>
         public async Task DeleteCalendarAsync(int id)
         {
@@ -273,10 +276,17 @@ namespace NativeCal.Services
             if (calendarToDelete is null)
                 return;
 
+            // Holiday calendars are read-only and cannot be removed.
             if (CalendarCatalogHelper.IsProtectedCalendar(calendarToDelete))
                 return;
 
-            if (calendars.Count <= 1)
+            // Ensure at least one non-protected (user-writable) calendar
+            // remains after this deletion. Without a writable calendar the
+            // user cannot create new events.
+            var nonProtected = calendars
+                .Where(c => !CalendarCatalogHelper.IsProtectedCalendar(c))
+                .ToList();
+            if (nonProtected.Count <= 1)
                 return;
 
             var remainingCalendars = calendars
@@ -284,11 +294,17 @@ namespace NativeCal.Services
                 .OrderBy(c => c.Id)
                 .ToList();
 
+            // If the deleted calendar was the default and no other default
+            // exists, promote the first remaining non-protected calendar.
             if (calendarToDelete.IsDefault && !remainingCalendars.Any(c => c.IsDefault))
             {
-                var replacementDefault = remainingCalendars[0];
-                replacementDefault.IsDefault = true;
-                await _db.UpdateAsync(replacementDefault);
+                var replacementDefault = remainingCalendars
+                    .FirstOrDefault(c => !CalendarCatalogHelper.IsProtectedCalendar(c));
+                if (replacementDefault is not null)
+                {
+                    replacementDefault.IsDefault = true;
+                    await _db.UpdateAsync(replacementDefault);
+                }
             }
 
             await _db.ExecuteAsync("DELETE FROM CalendarEvents WHERE CalendarId = ?", id);
