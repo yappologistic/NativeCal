@@ -90,4 +90,8 @@ This repo includes fixes and regression coverage for:
 
 ## License
 
-No license has been added yet.
+This project is licensed under **0BSD (Zero-Clause BSD)**.
+
+That means people can use, copy, modify, publish, and distribute it with essentially no restrictions, subject to the standard no-warranty disclaimer.
+
+See [LICENSE](./LICENSE).
