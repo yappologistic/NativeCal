@@ -23,12 +23,17 @@ public abstract class TestBase : IAsyncLifetime
         await Db.InitializeAsync();
         App.Database = Db;
         App.HolidayService = new HolidayService((_, _) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(Array.Empty<HolidayService.HolidayRecord>()));
+
+        // Reset first day of week to Sunday (default) so tests don't leak
+        // a custom setting to subsequent tests.
+        App.FirstDayOfWeek = DayOfWeek.Sunday;
     }
 
     public Task DisposeAsync()
     {
         App.Database = null!;
         App.HolidayService = new HolidayService((_, _) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(Array.Empty<HolidayService.HolidayRecord>()));
+        App.FirstDayOfWeek = DayOfWeek.Sunday;
         // Clean up the temp database file
         try
         {
