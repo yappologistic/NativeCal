@@ -227,4 +227,90 @@ public class TimedEventSpanHelperTests
 
         Assert.Equal(new DateTime(2026, 4, 7, 15, 0, 0), result);
     }
+
+    // ── WeekView resize for spanning events ──────────────────────────────
+    // In the WeekView, TryGetDateTimeFromWeekPoint resolves the pointer's
+    // X coordinate to a day column.  For spanning event blocks that cover
+    // multiple columns, the pointer X can land on the START column even
+    // though the resize handle logically belongs to the END.  The WeekView
+    // fix maps the resolved date forward to the original end date when the
+    // pointer is over an earlier column.
+
+    /// <summary>
+    /// Simulates the WeekView bug: spanning event Apr 5 22:00 → Apr 7 14:00.
+    /// User drags resize handle down.  Pointer X is over the Apr 5 column
+    /// (where the bar starts), so TryGetDateTimeFromWeekPoint resolves to
+    /// Apr 5.  Without the fix this collapses the event to 1 day.
+    /// The fix remaps the proposed date to the original end date (Apr 7).
+    /// </summary>
+    [Fact]
+    public void WeekViewResize_SpanningEvent_PointerOverStartColumn_MustNotCollapse()
+    {
+        DateTime originalStart = new(2026, 4, 5, 22, 0, 0);
+        DateTime originalEnd = new(2026, 4, 7, 14, 0, 0);
+
+        // TryGetDateTimeFromWeekPoint returned Apr 5 16:00 because
+        // the pointer X was over the Apr 5 column.
+        DateTime proposedFromWeekPoint = new(2026, 4, 5, 16, 0, 0);
+
+        // The WeekView fix: if proposed.Date < originalEnd.Date,
+        // remap onto the original end date.
+        DateTime corrected = proposedFromWeekPoint.Date < originalEnd.Date
+            ? originalEnd.Date.Add(proposedFromWeekPoint.TimeOfDay)
+            : proposedFromWeekPoint;
+
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetDateTime(
+            originalStart, originalEnd, corrected);
+
+        // Must stay on Apr 7, not collapse to Apr 5
+        Assert.Equal(new DateTime(2026, 4, 7, 16, 0, 0), resolved);
+    }
+
+    /// <summary>
+    /// When the pointer IS over the end-date column (or later), the
+    /// proposed date is already correct — no remapping needed.
+    /// </summary>
+    [Fact]
+    public void WeekViewResize_SpanningEvent_PointerOverEndColumn_PassesThrough()
+    {
+        DateTime originalStart = new(2026, 4, 5, 22, 0, 0);
+        DateTime originalEnd = new(2026, 4, 7, 14, 0, 0);
+
+        // Pointer is over the Apr 7 column at 18:00.
+        DateTime proposedFromWeekPoint = new(2026, 4, 7, 18, 0, 0);
+
+        // No remapping needed — date is on or after originalEnd.Date.
+        DateTime corrected = proposedFromWeekPoint.Date < originalEnd.Date
+            ? originalEnd.Date.Add(proposedFromWeekPoint.TimeOfDay)
+            : proposedFromWeekPoint;
+
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetDateTime(
+            originalStart, originalEnd, corrected);
+
+        Assert.Equal(new DateTime(2026, 4, 7, 18, 0, 0), resolved);
+    }
+
+    /// <summary>
+    /// When the pointer is over a column PAST the original end date
+    /// (user dragged right to extend), the date is used as-is,
+    /// extending the event to a later day.
+    /// </summary>
+    [Fact]
+    public void WeekViewResize_SpanningEvent_PointerPastEndColumn_Extends()
+    {
+        DateTime originalStart = new(2026, 4, 5, 22, 0, 0);
+        DateTime originalEnd = new(2026, 4, 6, 14, 0, 0);
+
+        // Pointer dragged right to Apr 8 column at 10:00.
+        DateTime proposedFromWeekPoint = new(2026, 4, 8, 10, 0, 0);
+
+        DateTime corrected = proposedFromWeekPoint.Date < originalEnd.Date
+            ? originalEnd.Date.Add(proposedFromWeekPoint.TimeOfDay)
+            : proposedFromWeekPoint;
+
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetDateTime(
+            originalStart, originalEnd, corrected);
+
+        Assert.Equal(new DateTime(2026, 4, 8, 10, 0, 0), resolved);
+    }
 }

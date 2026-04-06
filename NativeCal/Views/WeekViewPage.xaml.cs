@@ -935,6 +935,21 @@ public sealed partial class WeekViewPage : Page
         return availableWidth > 0 ? availableWidth / DaysInWeek : 140;
     }
 
+    /// <summary>
+    /// Resolves the target end DateTime for a resize gesture.
+    ///
+    /// For single-day events, the Y position maps to a time on the
+    /// original end date (the user resizes within the same day column).
+    ///
+    /// For multi-day (spanning) events, we determine which day column
+    /// the pointer is over.  If the pointer is over a day that is
+    /// BEFORE the original end date, we map the Y-time onto the
+    /// original end date — the user is dragging the resize handle
+    /// vertically and the X just happens to be over an earlier column
+    /// because the spanning bar starts there.  If the pointer is on
+    /// or after the original end date, we use that date directly
+    /// (the user dragged right to extend to a later day).
+    /// </summary>
     private bool TryGetResizeDateTime(Windows.Foundation.Point point, EventInteractionState state, out DateTime result)
     {
         DateTime proposedDateTime;
@@ -945,6 +960,18 @@ public sealed partial class WeekViewPage : Page
             {
                 result = default;
                 return false;
+            }
+
+            // The pointer's X determines the day column, but for a
+            // spanning event block the X may land over any column the
+            // bar covers.  If the resolved date is earlier than the
+            // original end date, the user is just dragging vertically
+            // with the pointer still over the start/middle columns.
+            // In that case, keep the original end date and use the
+            // proposed time-of-day so the event stays multi-day.
+            if (proposedDateTime.Date < state.OriginalEnd.Date)
+            {
+                proposedDateTime = state.OriginalEnd.Date.Add(proposedDateTime.TimeOfDay);
             }
         }
         else
