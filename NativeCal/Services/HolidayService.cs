@@ -59,7 +59,12 @@ public sealed class HolidayService
                         Description = BuildDescription(definition.CountryDisplayName, holiday),
                         Location = definition.CountryDisplayName,
                         StartTime = holidayDate,
-                        EndTime = holidayDate.AddHours(23).AddMinutes(59).AddSeconds(59),
+                        // Use midnight of the same date to match the convention used by
+                        // EventDialog for user-created all-day events.  The query and
+                        // display layers compare EndTime.Date (not the time component),
+                        // so both conventions work, but keeping them consistent avoids
+                        // subtle edge-case mismatches in duration calculations.
+                        EndTime = holidayDate,
                         IsAllDay = true,
                         CalendarId = calendar.Id,
                         ReminderMinutes = 0,

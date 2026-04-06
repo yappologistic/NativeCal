@@ -39,6 +39,42 @@ public class HolidayServiceTests
         Assert.Equal(10, holiday.CalendarId);
     }
 
+    /// <summary>
+    /// Verifies that holiday events use the same EndTime convention as
+    /// user-created all-day events (midnight of the holiday date).
+    /// This ensures consistent behavior across all query and display code.
+    /// </summary>
+    [Fact]
+    public async Task GetHolidayEventsAsync_EndTimeUsesConsistentMidnightConvention()
+    {
+        var service = new HolidayService((year, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
+            new[]
+            {
+                new HolidayService.HolidayRecord
+                {
+                    Date = new DateTime(2026, 7, 4),
+                    LocalName = "Independence Day",
+                    EnglishName = "Independence Day",
+                    Types = new[] { "Public" }
+                }
+            }));
+
+        var calendars = new[]
+        {
+            new CalendarInfo { Id = 20, Name = "US Holidays", ColorHex = "#3B82F6", IsVisible = true }
+        };
+
+        var holiday = Assert.Single(
+            await service.GetHolidayEventsAsync(new DateTime(2026, 7, 4), new DateTime(2026, 7, 5), calendars));
+
+        // StartTime and EndTime should both be midnight of the holiday date,
+        // matching the convention EventDialog uses for single-day all-day events.
+        Assert.Equal(new DateTime(2026, 7, 4), holiday.StartTime);
+        Assert.Equal(new DateTime(2026, 7, 4), holiday.EndTime);
+        Assert.Equal(TimeSpan.Zero, holiday.StartTime.TimeOfDay);
+        Assert.Equal(TimeSpan.Zero, holiday.EndTime.TimeOfDay);
+    }
+
     [Fact]
     public async Task GetHolidayEventsAsync_UsesNegativeSyntheticIds()
     {
