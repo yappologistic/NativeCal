@@ -579,6 +579,20 @@ public static class EventDialog
         string? selectedColorHex = existing?.ColorHex; // null means "Auto"
         bool userSelectedCustomColor = false;
 
+        // Helper to get the current dialog theme for color selection borders.
+        // Using ThemeResourceHelper instead of Application.Current.Resources ensures
+        // the correct brush is returned when the app theme differs from the system theme.
+        Brush getSelectionBorderBrush()
+        {
+            FrameworkElement? themeElement = null;
+            if (App.MainAppWindow?.Content is FrameworkElement root)
+                themeElement = root;
+            ElementTheme theme = themeElement is not null
+                ? ThemeResourceHelper.GetEffectiveTheme(themeElement)
+                : ElementTheme.Default;
+            return ThemeResourceHelper.GetBrush("TextFillColorPrimaryBrush", theme);
+        }
+
         // Auto option
         var autoBorder = new Border
         {
@@ -587,7 +601,7 @@ public static class EventDialog
             CornerRadius = new CornerRadius(14),
             BorderThickness = new Thickness(2),
             BorderBrush = selectedColorHex == null
-                ? (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"]
+                ? getSelectionBorderBrush()
                 : new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Background = new SolidColorBrush(Microsoft.UI.Colors.Gray),
             Child = new TextBlock
@@ -613,7 +627,7 @@ public static class EventDialog
             }
             selectedColorHex = null;
             userSelectedCustomColor = false;
-            autoBorder.BorderBrush = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+            autoBorder.BorderBrush = getSelectionBorderBrush();
             selectedColorBorder = autoBorder;
         };
 
@@ -628,7 +642,7 @@ public static class EventDialog
                 CornerRadius = new CornerRadius(14),
                 BorderThickness = new Thickness(2),
                 BorderBrush = (selectedColorHex != null && selectedColorHex.Equals(hex, StringComparison.OrdinalIgnoreCase))
-                    ? (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"]
+                    ? getSelectionBorderBrush()
                     : new SolidColorBrush(Microsoft.UI.Colors.Transparent),
                 Background = ColorHelper.ToBrush(hex),
                 Tag = hex
@@ -648,7 +662,7 @@ public static class EventDialog
                 }
                 selectedColorHex = capturedHex;
                 userSelectedCustomColor = true;
-                swatch.BorderBrush = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+                swatch.BorderBrush = getSelectionBorderBrush();
                 selectedColorBorder = swatch;
             };
 
@@ -701,7 +715,7 @@ public static class EventDialog
                 }
 
                 selectedColorHex = null;
-                autoBorder.BorderBrush = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+                autoBorder.BorderBrush = getSelectionBorderBrush();
                 selectedColorBorder = autoBorder;
             }
         };
