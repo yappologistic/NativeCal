@@ -308,7 +308,10 @@ public sealed partial class AgendaViewPage : Page
 
     private async void CreateEvent_Click(object sender, RoutedEventArgs e)
     {
-        DateTime startTime = DateTime.Today.AddHours(DateTime.Now.Hour + 1);
+        // Clamp the start hour so we don't overflow past midnight into the next day.
+        // At 11 PM (hour 23), Hour + 1 = 24 which would roll to tomorrow.
+        int nextHour = Math.Min(DateTime.Now.Hour + 1, 23);
+        DateTime startTime = DateTime.Today.AddHours(nextHour);
         DateTime endTime = startTime.AddHours(1);
 
         var draftEvent = new CalendarEvent
@@ -338,7 +341,14 @@ public sealed partial class AgendaViewPage : Page
             btn.Content = "Loading...";
         }
 
+        // Preserve scroll position so the user doesn't jump back to the top
+        // after new items are appended at the bottom of the list.
+        double savedOffset = AgendaScrollViewer.VerticalOffset;
+
         await ViewModel.LoadMoreCommand.ExecuteAsync(null);
         BuildAgendaList();
+
+        // Restore the scroll position after the list is rebuilt.
+        AgendaScrollViewer.ChangeView(null, savedOffset, null, disableAnimation: true);
     }
 }

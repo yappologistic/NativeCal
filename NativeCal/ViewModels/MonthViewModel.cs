@@ -58,8 +58,10 @@ public partial class MonthViewModel : ObservableObject
                 CurrentMonth = new DateTime(date.Value.Year, date.Value.Month, 1);
             }
 
-            DateTime gridStart = DateTimeHelper.GetCalendarGridStart(CurrentMonth);
-            DateTime gridEnd = DateTimeHelper.GetCalendarGridEnd(CurrentMonth).AddDays(1);
+            // Use the app-wide first day of week setting so the grid aligns correctly.
+            DayOfWeek firstDay = App.FirstDayOfWeek;
+            DateTime gridStart = DateTimeHelper.GetCalendarGridStart(CurrentMonth, firstDay);
+            DateTime gridEnd = DateTimeHelper.GetCalendarGridEnd(CurrentMonth, firstDay).AddDays(1);
 
             var calendars = await App.Database.GetCalendarsAsync();
             var visibleCalendarIds = calendars.Where(c => c.IsVisible).Select(c => c.Id).ToHashSet();

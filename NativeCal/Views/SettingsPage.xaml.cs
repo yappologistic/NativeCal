@@ -166,6 +166,17 @@ public sealed partial class SettingsPage : Page
         {
             int dayValue = FirstDayOptions[selectedIndex].Value;
             await App.Database.SetSettingAsync(FirstDayOfWeekKey, dayValue.ToString());
+
+            // Update the in-memory setting so all views use the new value immediately.
+            App.FirstDayOfWeek = dayValue switch
+            {
+                1 => DayOfWeek.Monday,
+                6 => DayOfWeek.Saturday,
+                _ => DayOfWeek.Sunday
+            };
+
+            // Refresh the current view so the calendar grid realigns.
+            App.MainAppWindow?.RefreshCurrentViewData();
         }
     }
 

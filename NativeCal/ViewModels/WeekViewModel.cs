@@ -34,7 +34,8 @@ public partial class WeekViewModel : ObservableObject
         WeekTitle = string.Empty;
         DayColumns = new();
         HourLabels = new ObservableCollection<string>(DateTimeHelper.GetHourLabels());
-        WeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
+        // Use the app-wide first day of week so the week starts on the correct day.
+        WeekStart = DateTimeHelper.GetWeekStart(DateTime.Today, App.FirstDayOfWeek);
     }
 
     partial void OnWeekStartChanged(DateTime value)
@@ -71,7 +72,8 @@ public partial class WeekViewModel : ObservableObject
 
             if (date.HasValue)
             {
-                WeekStart = DateTimeHelper.GetWeekStart(date.Value);
+                // Align to the first day of the week using the app setting.
+                WeekStart = DateTimeHelper.GetWeekStart(date.Value, App.FirstDayOfWeek);
             }
 
             DateTime weekEnd = WeekStart.AddDays(7);
@@ -141,7 +143,8 @@ public partial class WeekViewModel : ObservableObject
     [RelayCommand]
     private async Task GoToToday()
     {
-        WeekStart = DateTimeHelper.GetWeekStart(DateTime.Today);
+        // Align to the first day of the week using the app setting.
+        WeekStart = DateTimeHelper.GetWeekStart(DateTime.Today, App.FirstDayOfWeek);
         await LoadWeek();
     }
 

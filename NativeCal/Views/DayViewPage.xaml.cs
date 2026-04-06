@@ -522,6 +522,11 @@ public sealed partial class DayViewPage : Page
                 : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), proposedDateTime);
 
             _suppressEventTap = true;
+
+            // Safety: clear the flag on the next UI frame in case Tapped doesn't
+            // fire (e.g. the pointer ended on a different element after dragging).
+            DispatcherQueue.TryEnqueue(() => _suppressEventTap = false);
+
             await App.Database.SaveEventAsync(updated);
             App.MainAppWindow?.RefreshCurrentViewData();
         }
@@ -557,17 +562,21 @@ public sealed partial class DayViewPage : Page
 
     private void ShowCurrentTimeIndicator()
     {
-        // Remove any existing time indicator
+        // Remove any existing time indicator elements (red line + dot).
+        // Iterate backwards so removals don't shift indices we haven't visited yet.
         const string indicatorTag = "__CurrentTimeIndicator__";
         for (int i = TimeGrid.Children.Count - 1; i >= 0; i--)
         {
-            if (TimeGrid.Children[i] is Border b && b.Tag as string == indicatorTag)
+            var child = TimeGrid.Children[i];
+            // Check both Border (the red line) and Ellipse (the red dot)
+            bool isIndicator =
+                (child is Border b && b.Tag as string == indicatorTag) ||
+                (child is Ellipse ell && ell.Tag as string == indicatorTag);
+
+            if (isIndicator)
             {
-                TimeGrid.Children.Remove(b);
-            }
-            if (TimeGrid.Children[i] is Ellipse ell && ell.Tag as string == indicatorTag)
-            {
-                TimeGrid.Children.Remove(ell);
+                // Use RemoveAt to avoid a second collection lookup after the size changed.
+                TimeGrid.Children.RemoveAt(i);
             }
         }
 

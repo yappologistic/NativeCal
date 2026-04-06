@@ -62,7 +62,28 @@ public sealed partial class MonthViewPage : Page
     /// </summary>
     public void LoadData(DateTime targetDate)
     {
+        // Refresh the day-of-week column headers in case the setting changed.
+        UpdateDayOfWeekHeaders();
         _ = LoadMonthAsync(targetDate);
+    }
+
+    /// <summary>
+    /// Updates the 7 day-of-week column headers to reflect the configured
+    /// first day of week (Sunday, Monday, or Saturday).
+    /// </summary>
+    private void UpdateDayOfWeekHeaders()
+    {
+        // Array of the 7 named TextBlocks from the XAML.
+        TextBlock[] headers = { DayHeader0, DayHeader1, DayHeader2, DayHeader3, DayHeader4, DayHeader5, DayHeader6 };
+        DayOfWeek firstDay = App.FirstDayOfWeek;
+
+        // Build abbreviated day names starting from the configured first day.
+        string[] abbreviations = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        for (int i = 0; i < 7; i++)
+        {
+            int dayIndex = ((int)firstDay + i) % 7;
+            headers[i].Text = abbreviations[dayIndex];
+        }
     }
 
     private void LayoutRoot_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -444,6 +465,14 @@ public sealed partial class MonthViewPage : Page
         try
         {
             _suppressChipTap = dragState.HasMoved;
+
+            // Safety: if the Tapped event doesn't fire (pointer ended on a different
+            // element), clear the flag on the next UI frame so it doesn't leak to
+            // the next unrelated tap.
+            if (_suppressChipTap)
+            {
+                DispatcherQueue.TryEnqueue(() => _suppressChipTap = false);
+            }
 
             if (dragState.HasMoved && TryGetCellDate(e.GetCurrentPoint(LayoutRoot).Position, out var targetDate) && targetDate.Date != dragState.SourceDate.Date)
             {

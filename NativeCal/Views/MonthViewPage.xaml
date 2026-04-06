@@ -15,7 +15,7 @@
 
     <Grid x:Name="LayoutRoot" RowDefinitions="Auto,*" Padding="4,0,4,4" SizeChanged="LayoutRoot_SizeChanged">
 
-        <!-- Row 0: Day-of-week headers -->
+        <!-- Row 0: Day-of-week headers (populated dynamically based on first-day-of-week setting) -->
         <Grid x:Name="DayHeadersGrid" Grid.Row="0" Padding="0,8,0,8" HorizontalAlignment="Stretch">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -27,25 +27,25 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" Text="Sun" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader0" Grid.Column="0" Text="Sun" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <TextBlock Grid.Column="1" Text="Mon" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader1" Grid.Column="1" Text="Mon" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <TextBlock Grid.Column="2" Text="Tue" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader2" Grid.Column="2" Text="Tue" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <TextBlock Grid.Column="3" Text="Wed" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader3" Grid.Column="3" Text="Wed" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <TextBlock Grid.Column="4" Text="Thu" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader4" Grid.Column="4" Text="Thu" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <TextBlock Grid.Column="5" Text="Fri" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader5" Grid.Column="5" Text="Fri" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <TextBlock Grid.Column="6" Text="Sat" HorizontalAlignment="Center"
+            <TextBlock x:Name="DayHeader6" Grid.Column="6" Text="Sat" HorizontalAlignment="Center"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </Grid>

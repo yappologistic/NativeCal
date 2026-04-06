@@ -545,7 +545,8 @@ public sealed partial class MainWindow : Window
         return viewTag switch
         {
             "month" => date.ToString("MMMM yyyy"),
-            "week" => $"Week of {date.AddDays(-(int)date.DayOfWeek):MMM d, yyyy}",
+            // Align to the configured first day of week for the "Week of" label.
+            "week" => $"Week of {DateTimeHelper.GetWeekStart(date, App.FirstDayOfWeek):MMM d, yyyy}",
             "day" => date.ToString("dddd, MMMM d, yyyy"),
             "agenda" => date.ToString("MMMM yyyy"),
             "settings" => "Settings",

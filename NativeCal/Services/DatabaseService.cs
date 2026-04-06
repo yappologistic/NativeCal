@@ -106,6 +106,7 @@ namespace NativeCal.Services
             if (visibleCalendarIds.Count == 0)
                 return new List<CalendarEvent>();
 
+            // Timed events: standard overlap check against the date range.
             var timedEvents = await _db.Table<CalendarEvent>()
                 .Where(e =>
                     !e.IsAllDay &&
@@ -114,8 +115,21 @@ namespace NativeCal.Services
                      (e.StartTime <= startDate && e.EndTime >= endDate)))
                 .ToListAsync();
 
+            // All-day events: SQLite can't evaluate e.StartTime.Date so we widen
+            // the query window by 1 day on each side and then filter in memory.
+            // This avoids loading the ENTIRE all-day events table.
+            // Guard against DateTime overflow at the boundaries.
+            DateTime allDayQueryStart = startDate.Date > DateTime.MinValue.AddDays(1)
+                ? startDate.Date.AddDays(-1)
+                : DateTime.MinValue;
+            DateTime allDayQueryEnd = endDate.Date < DateTime.MaxValue.AddDays(-1)
+                ? endDate.Date.AddDays(1)
+                : DateTime.MaxValue;
+
             var allDayEvents = await _db.Table<CalendarEvent>()
-                .Where(e => e.IsAllDay)
+                .Where(e => e.IsAllDay &&
+                            e.StartTime < allDayQueryEnd &&
+                            e.EndTime >= allDayQueryStart)
                 .ToListAsync();
 
             var overlappingAllDayEvents = allDayEvents

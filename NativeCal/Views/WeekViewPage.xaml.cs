@@ -821,6 +821,11 @@ public sealed partial class WeekViewPage : Page
                 : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), dateTime);
 
             _suppressEventTap = true;
+
+            // Safety: clear the flag on the next UI frame in case Tapped doesn't
+            // fire (e.g. the pointer ended on a different element after dragging).
+            DispatcherQueue.TryEnqueue(() => _suppressEventTap = false);
+
             await App.Database.SaveEventAsync(updated);
             App.MainAppWindow?.RefreshCurrentViewData();
         }
