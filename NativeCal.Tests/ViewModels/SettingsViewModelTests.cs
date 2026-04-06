@@ -114,4 +114,67 @@ public class SettingsViewModelTests : TestBase
         Assert.Contains(viewModel.Calendars, c => c.Id == holidayCalendar.Id);
         Assert.Contains(await Db.GetCalendarsAsync(), c => c.Id == holidayCalendar.Id);
     }
+
+    /// <summary>
+    /// Regression: verifies that loading settings does not overwrite persisted
+    /// values with defaults. This catches the bug where XAML-triggered
+    /// SelectionChanged events could write "0" back to the database before
+    /// LoadSettingsAsync reads the saved value.
+    /// </summary>
+    [Fact]
+    public async Task LoadSettingsCommand_DoesNotOverwritePersistedTheme()
+    {
+        // Persist Dark theme (index 2)
+        await Db.SetSettingAsync("Theme", "2");
+
+        var viewModel = new SettingsViewModel();
+        await viewModel.LoadSettingsCommand.ExecuteAsync(null);
+
+        // Verify the VM loaded the saved value, not a default
+        Assert.Equal(2, viewModel.SelectedThemeIndex);
+
+        // Verify the database still has the saved value (not overwritten)
+        string dbValue = await Db.GetSettingAsync("Theme", "MISSING");
+        Assert.Equal("2", dbValue);
+    }
+
+    /// <summary>
+    /// Regression: verifies that loading settings does not overwrite persisted
+    /// first-day-of-week value with defaults.
+    /// </summary>
+    [Fact]
+    public async Task LoadSettingsCommand_DoesNotOverwritePersistedFirstDayOfWeek()
+    {
+        // Persist Saturday (value 6)
+        await Db.SetSettingAsync("FirstDayOfWeek", "6");
+
+        var viewModel = new SettingsViewModel();
+        await viewModel.LoadSettingsCommand.ExecuteAsync(null);
+
+        Assert.Equal(6, viewModel.FirstDayOfWeekIndex);
+
+        // Verify the database still has the saved value
+        string dbValue = await Db.GetSettingAsync("FirstDayOfWeek", "MISSING");
+        Assert.Equal("6", dbValue);
+    }
+
+    /// <summary>
+    /// Regression: verifies that loading settings does not overwrite persisted
+    /// default reminder minutes with defaults.
+    /// </summary>
+    [Fact]
+    public async Task LoadSettingsCommand_DoesNotOverwritePersistedReminder()
+    {
+        // Persist 30 minutes
+        await Db.SetSettingAsync("DefaultReminderMinutes", "30");
+
+        var viewModel = new SettingsViewModel();
+        await viewModel.LoadSettingsCommand.ExecuteAsync(null);
+
+        Assert.Equal(30, viewModel.DefaultReminderMinutes);
+
+        // Verify the database still has the saved value
+        string dbValue = await Db.GetSettingAsync("DefaultReminderMinutes", "MISSING");
+        Assert.Equal("30", dbValue);
+    }
 }

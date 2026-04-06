@@ -20,7 +20,13 @@ public sealed partial class SettingsPage : Page
     private const string DefaultReminderKey = "DefaultReminderMinutes";
     private const string FirstDayOfWeekKey = "FirstDayOfWeek";
 
-    private bool _isLoading;
+    /// <summary>
+    /// Guards against SelectionChanged events firing during async load.
+    /// Initialized to true so that any XAML-triggered selection changes
+    /// (e.g. from SelectedIndex defaults) are suppressed until
+    /// LoadSettingsAsync explicitly sets the correct values.
+    /// </summary>
+    private bool _isLoading = true;
 
     private static readonly (string Label, int Minutes)[] ReminderOptions =
     {
@@ -47,11 +53,23 @@ public sealed partial class SettingsPage : Page
     /// <summary>
     /// Called by MainWindow to load settings data.
     /// Replaces OnNavigatedTo since we no longer use Frame navigation.
+    /// Awaits both async operations so saved values are loaded before
+    /// the _isLoading guard is released — preventing SelectionChanged
+    /// handlers from writing default values back to the database.
     /// </summary>
-    public void LoadData()
+    public async void LoadData()
     {
-        _ = LoadSettingsAsync();
-        _ = LoadCalendarListAsync();
+        // _isLoading is true by default (field initializer) to suppress
+        // any XAML-triggered SelectionChanged events during construction.
+        // We keep it true until both loads finish.
+        try
+        {
+            await Task.WhenAll(LoadSettingsAsync(), LoadCalendarListAsync());
+        }
+        catch
+        {
+            // Database may not be ready during first launch; silently skip.
+        }
     }
 
     // ── Load settings from database ─────────────────────────────────────

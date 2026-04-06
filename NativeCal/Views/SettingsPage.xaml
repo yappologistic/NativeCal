@@ -32,10 +32,12 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
+                    <!-- NOTE: Do NOT set SelectedIndex in XAML — it triggers SelectionChanged
+                         before LoadSettingsAsync reads the saved value, which would
+                         overwrite the user's persisted theme choice. -->
                     <ComboBox x:Name="ThemeComboBox" Grid.Column="1"
                               MinWidth="140" MaxWidth="200"
                               VerticalAlignment="Center"
-                              SelectedIndex="0"
                               SelectionChanged="ThemeComboBox_SelectionChanged">
                         <ComboBoxItem Content="System default"/>
                         <ComboBoxItem Content="Light"/>
