@@ -534,6 +534,10 @@ public static class EventDialog
         reminderCombo.SelectedIndex = selectedReminderIndex;
 
         // ── Recurrence selector ─────────────────────────────────────────
+        // NOTE: Recurrence is saved as a label but not yet expanded — events
+        // with a recurrence rule still behave as single-occurrence events.
+        // The picker is visible so users can tag intent, but a clear
+        // "(preview)" suffix on each option signals the limitation.
         var recurrenceCombo = new ComboBox
         {
             Header = "Repeat",
@@ -550,7 +554,12 @@ public static class EventDialog
 
         for (int i = 0; i < RecurrenceOptions.Length; i++)
         {
-            recurrenceCombo.Items.Add(RecurrenceOptions[i].Label);
+            // Append "(preview)" to non-None options to indicate recurrence
+            // expansion is not yet implemented. Users can still set intent.
+            string label = RecurrenceOptions[i].Type == RecurrenceType.None
+                ? RecurrenceOptions[i].Label
+                : $"{RecurrenceOptions[i].Label} (preview)";
+            recurrenceCombo.Items.Add(label);
             if (RecurrenceOptions[i].Type == existingRecurrence)
             {
                 selectedRecurrenceIndex = i;
