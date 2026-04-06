@@ -559,12 +559,21 @@ public sealed partial class SettingsPage : Page
             colorPanel.Children.Add(swatch);
         }
 
+        var reservedNameMessage = new TextBlock
+        {
+            Text = "This name is reserved for a built-in holiday calendar.",
+            Foreground = ThemeResourceHelper.GetBrush("SystemFillColorCautionBrush", theme),
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed
+        };
+
         var contentPanel = new StackPanel
         {
             Spacing = 8,
             MinWidth = 320
         };
         contentPanel.Children.Add(nameBox);
+        contentPanel.Children.Add(reservedNameMessage);
         contentPanel.Children.Add(colorHeader);
         contentPanel.Children.Add(colorPanel);
 
@@ -578,12 +587,20 @@ public sealed partial class SettingsPage : Page
             XamlRoot = DialogXamlRootHelper.Resolve(ThemeComboBox, FirstDayComboBox, ReminderComboBox, CalendarSettingsPanel)
         };
 
-        // Validate: disable Save when name is empty
-        dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(nameBox.Text);
-        nameBox.TextChanged += (s, ev) =>
+        // Validate inline so users immediately see why a reserved built-in
+        // holiday name cannot be reused for a custom calendar.
+        void UpdatePrimaryButtonState()
         {
-            dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(nameBox.Text);
-        };
+            string trimmedName = nameBox.Text.Trim();
+            bool hasName = !string.IsNullOrWhiteSpace(trimmedName);
+            bool usesReservedName = CalendarCatalogHelper.IsReservedCalendarName(trimmedName) && !string.Equals(trimmedName, initialName, StringComparison.OrdinalIgnoreCase);
+
+            reservedNameMessage.Visibility = usesReservedName ? Visibility.Visible : Visibility.Collapsed;
+            dialog.IsPrimaryButtonEnabled = hasName && !usesReservedName;
+        }
+
+        UpdatePrimaryButtonState();
+        nameBox.TextChanged += (s, ev) => UpdatePrimaryButtonState();
 
         return (dialog, () => nameBox.Text, () => selectedColor);
     }

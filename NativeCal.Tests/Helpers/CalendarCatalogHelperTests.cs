@@ -48,4 +48,12 @@ public class CalendarCatalogHelperTests
         Assert.Equal(2, holidayCalendar.Id);
         Assert.Equal("US Holidays", holidayCalendar.Name);
     }
+
+    [Fact]
+    public void IsReservedCalendarName_MatchesBuiltInHolidayNamesCaseInsensitively()
+    {
+        Assert.True(CalendarCatalogHelper.IsReservedCalendarName("us holidays"));
+        Assert.True(CalendarCatalogHelper.IsReservedCalendarName("Canada Holidays"));
+        Assert.False(CalendarCatalogHelper.IsReservedCalendarName("Team Calendar"));
+    }
 }

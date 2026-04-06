@@ -11,6 +11,8 @@ namespace NativeCal.Services
 {
     public class DatabaseService
     {
+        // Keep this list aligned with the reminder choices shown in EventDialog.
+        private static readonly HashSet<int> AllowedReminderMinutes = new() { 0, 5, 10, 15, 30, 60, 120, 1440 };
         private SQLiteAsyncConnection _db = null!;
         private readonly string _dbPath;
 
@@ -163,15 +165,20 @@ namespace NativeCal.Services
 
             if (evt.Id > 0)
             {
-                await _db.UpdateAsync(evt);
+                // Surface stale edit attempts instead of silently pretending the
+                // update worked. This protects callers from false-success writes.
+                int rowsUpdated = await _db.UpdateAsync(evt);
+                if (rowsUpdated == 0)
+                {
+                    throw new InvalidOperationException($"Event {evt.Id} no longer exists.");
+                }
+
                 return evt.Id;
             }
-            else
-            {
-                evt.CreatedAt = DateTime.UtcNow;
-                await _db.InsertAsync(evt);
-                return evt.Id; // populated by AutoIncrement after insert
-            }
+
+            evt.CreatedAt = DateTime.UtcNow;
+            await _db.InsertAsync(evt);
+            return evt.Id; // populated by AutoIncrement after insert
         }
 
         /// <summary>
@@ -244,20 +251,48 @@ namespace NativeCal.Services
 
         /// <summary>
         /// Inserts a new calendar or updates an existing one.
+        /// Reserved built-in holiday names cannot be claimed by user calendars,
+        /// and stale updates fail loudly instead of silently doing nothing.
         /// </summary>
         public async Task<int> SaveCalendarAsync(CalendarInfo cal)
         {
+            cal.Name = cal.Name?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(cal.Name))
+            {
+                throw new ArgumentException("Calendar name is required.", nameof(cal));
+            }
+
             if (cal.Id > 0)
             {
+                var existingCalendar = await _db.Table<CalendarInfo>()
+                    .Where(c => c.Id == cal.Id)
+                    .FirstOrDefaultAsync();
+                if (existingCalendar is null)
+                {
+                    throw new InvalidOperationException($"Calendar {cal.Id} no longer exists.");
+                }
+
+                // Block calendars from newly claiming a reserved holiday name while
+                // still allowing legacy rows that already carry that name to be saved
+                // unchanged (for example, when toggling visibility or repairing data).
+                if (CalendarCatalogHelper.IsReservedCalendarName(cal.Name) &&
+                    !string.Equals(existingCalendar.Name?.Trim(), cal.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Reserved holiday calendar names cannot be used for user calendars.");
+                }
+
                 await _db.UpdateAsync(cal);
                 return cal.Id;
             }
-            else
+
+            if (CalendarCatalogHelper.IsReservedCalendarName(cal.Name))
             {
-                cal.CreatedAt = DateTime.UtcNow;
-                await _db.InsertAsync(cal);
-                return cal.Id;
+                throw new InvalidOperationException("Reserved holiday calendar names cannot be used for user calendars.");
             }
+
+            cal.CreatedAt = DateTime.UtcNow;
+            await _db.InsertAsync(cal);
+            return cal.Id;
         }
 
         /// <summary>
@@ -323,6 +358,18 @@ namespace NativeCal.Services
                 .FirstOrDefaultAsync();
 
             return setting?.Value ?? defaultValue;
+        }
+
+        /// <summary>
+        /// Returns the persisted default reminder in minutes, falling back to 15
+        /// whenever the stored value is missing or invalid.
+        /// </summary>
+        public async Task<int> GetDefaultReminderMinutesAsync()
+        {
+            string storedValue = await GetSettingAsync("DefaultReminderMinutes", "15");
+            return int.TryParse(storedValue, out int minutes) && AllowedReminderMinutes.Contains(minutes)
+                ? minutes
+                : 15;
         }
 
         /// <summary>

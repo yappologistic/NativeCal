@@ -54,6 +54,18 @@ public static class CalendarCatalogHelper
     }
 
     /// <summary>
+    /// Returns true when a display name is reserved for a built-in holiday calendar.
+    /// The Settings UI uses this to prevent user calendars from hijacking protected names.
+    /// </summary>
+    public static bool IsReservedCalendarName(string? calendarName)
+    {
+        if (string.IsNullOrWhiteSpace(calendarName))
+            return false;
+
+        return TryGetHolidayCalendar(calendarName.Trim(), out _);
+    }
+
+    /// <summary>
     /// Returns true if the calendar is a built-in holiday calendar that cannot be
     /// edited or deleted by the user.
     /// </summary>
