@@ -32,12 +32,41 @@ public partial class AgendaViewModel : ObservableObject
         DaysToLoad = 30;
     }
 
+    /// <summary>
+    /// Loads the agenda from today forward for <see cref="DaysToLoad"/> days.
+    /// Skips if another load is already in progress.
+    /// </summary>
     [RelayCommand]
     private async Task LoadAgenda()
     {
         if (IsLoading)
             return;
 
+        await LoadAgendaCoreAsync();
+    }
+
+    /// <summary>
+    /// Extends the agenda window by 30 days and reloads.
+    /// Guards against concurrent loads: if a load is already running,
+    /// the request is silently dropped (DaysToLoad is NOT incremented).
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadMore()
+    {
+        if (IsLoading)
+            return;
+
+        DaysToLoad += 30;
+        await LoadAgendaCoreAsync();
+    }
+
+    /// <summary>
+    /// Shared core that fetches events from the database and holiday service,
+    /// groups them by day, and populates <see cref="AgendaGroups"/>.
+    /// Callers must check <see cref="IsLoading"/> before calling.
+    /// </summary>
+    private async Task LoadAgendaCoreAsync()
+    {
         try
         {
             IsLoading = true;
@@ -61,6 +90,7 @@ public partial class AgendaViewModel : ObservableObject
             {
                 if (evt.IsAllDay)
                 {
+                    // Distribute all-day events across every day they span.
                     DateTime startDay = evt.StartTime.Date < startDate ? startDate : evt.StartTime.Date;
                     DateTime endDay = evt.EndTime.Date > lastAgendaDay ? lastAgendaDay : evt.EndTime.Date;
 
@@ -74,6 +104,8 @@ public partial class AgendaViewModel : ObservableObject
                     continue;
                 }
 
+                // Distribute timed events across every day they overlap,
+                // using proper overlap logic (not just start-date bucketing).
                 DateTime firstCandidateDay = evt.StartTime.Date < startDate ? startDate : evt.StartTime.Date;
                 DateTime lastCandidateDay = evt.EndTime.Date > lastAgendaDay ? lastAgendaDay : evt.EndTime.Date;
 
@@ -91,6 +123,7 @@ public partial class AgendaViewModel : ObservableObject
                 }
             }
 
+            // Build the grouped output, sorted by date.
             var groups = new ObservableCollection<AgendaGroup>();
             foreach (var kvp in grouped.OrderBy(k => k.Key))
             {
@@ -123,16 +156,6 @@ public partial class AgendaViewModel : ObservableObject
         {
             IsLoading = false;
         }
-    }
-
-    [RelayCommand]
-    private async Task LoadMore()
-    {
-        if (IsLoading)
-            return;
-
-        DaysToLoad += 30;
-        await LoadAgenda();
     }
 
     public partial class AgendaGroup : ObservableObject
