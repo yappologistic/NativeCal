@@ -18,5 +18,10 @@ xaml_stderr.txt
 NativeCal/xaml_stdout.txt
 NativeCal/xaml_stderr.txt
 
+# Local planning / agent state
+context.md
+.pi/
+artifacts/
+
 # Local tool/cache state
 ~/
