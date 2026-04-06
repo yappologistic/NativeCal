@@ -162,6 +162,8 @@ public class DateTimeHelperTests
     [Fact]
     public void FormatTimeRange_TimedEvent_ReturnsFormattedRange()
     {
+        using var culture = new CultureScope("en-US");
+
         var result = DateTimeHelper.FormatTimeRange(
             new DateTime(2026, 4, 5, 9, 0, 0),
             new DateTime(2026, 4, 5, 10, 30, 0),
@@ -173,6 +175,8 @@ public class DateTimeHelperTests
     [Fact]
     public void FormatTimeRange_MidnightToNoon()
     {
+        using var culture = new CultureScope("en-US");
+
         var result = DateTimeHelper.FormatTimeRange(
             new DateTime(2026, 4, 5, 0, 0, 0),
             new DateTime(2026, 4, 5, 12, 0, 0),
@@ -184,6 +188,8 @@ public class DateTimeHelperTests
     [Fact]
     public void FormatTimeRange_NoonToMidnight()
     {
+        using var culture = new CultureScope("en-US");
+
         var result = DateTimeHelper.FormatTimeRange(
             new DateTime(2026, 4, 5, 12, 0, 0),
             new DateTime(2026, 4, 5, 23, 59, 0),
@@ -195,6 +201,8 @@ public class DateTimeHelperTests
     [Fact]
     public void FormatTimeRange_PMHours()
     {
+        using var culture = new CultureScope("en-US");
+
         var result = DateTimeHelper.FormatTimeRange(
             new DateTime(2026, 4, 5, 14, 30, 0),
             new DateTime(2026, 4, 5, 16, 0, 0),
@@ -315,24 +323,49 @@ public class DateTimeHelperTests
     [Fact]
     public void GetHourLabels_FirstHour_Is12AM()
     {
+        using var culture = new CultureScope("en-US");
         var labels = DateTimeHelper.GetHourLabels();
 
-        Assert.Equal("12 AM", labels[0]);
+        Assert.Equal("12:00 AM", labels[0]);
     }
 
     [Fact]
     public void GetHourLabels_Noon_Is12PM()
     {
+        using var culture = new CultureScope("en-US");
         var labels = DateTimeHelper.GetHourLabels();
 
-        Assert.Equal("12 PM", labels[12]);
+        Assert.Equal("12:00 PM", labels[12]);
     }
 
     [Fact]
     public void GetHourLabels_LastHour_Is11PM()
     {
+        using var culture = new CultureScope("en-US");
         var labels = DateTimeHelper.GetHourLabels();
 
-        Assert.Equal("11 PM", labels[23]);
+        Assert.Equal("11:00 PM", labels[23]);
+    }
+
+    private sealed class CultureScope : IDisposable
+    {
+        private readonly CultureInfo _originalCulture;
+        private readonly CultureInfo _originalUiCulture;
+
+        public CultureScope(string cultureName)
+        {
+            _originalCulture = CultureInfo.CurrentCulture;
+            _originalUiCulture = CultureInfo.CurrentUICulture;
+
+            var culture = CultureInfo.GetCultureInfo(cultureName);
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+        }
+
+        public void Dispose()
+        {
+            CultureInfo.CurrentCulture = _originalCulture;
+            CultureInfo.CurrentUICulture = _originalUiCulture;
+        }
     }
 }

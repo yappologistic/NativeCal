@@ -319,7 +319,9 @@ public sealed partial class AgendaViewPage : Page
             StartTime = startTime,
             EndTime = endTime,
             IsAllDay = false,
-            ReminderMinutes = 15
+            // Respect the user's Settings → Default reminder choice when seeding
+            // a new agenda event draft.
+            ReminderMinutes = await App.Database.GetDefaultReminderMinutesAsync()
         };
 
         var createdEvent = await EventDialog.ShowCreateDialog(

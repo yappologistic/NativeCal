@@ -75,14 +75,13 @@ public sealed partial class MonthViewPage : Page
     {
         // Array of the 7 named TextBlocks from the XAML.
         TextBlock[] headers = { DayHeader0, DayHeader1, DayHeader2, DayHeader3, DayHeader4, DayHeader5, DayHeader6 };
-        DayOfWeek firstDay = App.FirstDayOfWeek;
+        var localizedHeaders = DateTimeHelper.GetDayOfWeekHeaders(App.FirstDayOfWeek);
 
-        // Build abbreviated day names starting from the configured first day.
-        string[] abbreviations = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        for (int i = 0; i < 7; i++)
+        // Rebuild the labels on every load so locale/theme changes are reflected
+        // without needing hardcoded English abbreviations in the UI layer.
+        for (int i = 0; i < headers.Length; i++)
         {
-            int dayIndex = ((int)firstDay + i) % 7;
-            headers[i].Text = abbreviations[dayIndex];
+            headers[i].Text = localizedHeaders[i];
         }
     }
 

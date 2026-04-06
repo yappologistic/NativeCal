@@ -369,9 +369,9 @@ public class PolishPassRegressionTests : TestBase
     {
         var labels = DateTimeHelper.GetHourLabels();
         Assert.Equal(24, labels.Count);
-        Assert.Equal("12 AM", labels[0]);
-        Assert.Equal("12 PM", labels[12]);
-        Assert.Equal("11 PM", labels[23]);
+        Assert.Equal(DateTime.Today.ToString("t"), labels[0]);
+        Assert.Equal(DateTime.Today.AddHours(12).ToString("t"), labels[12]);
+        Assert.Equal(DateTime.Today.AddHours(23).ToString("t"), labels[23]);
     }
 
     // ════════════════════════════════════════════════════════════════════

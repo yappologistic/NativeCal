@@ -434,7 +434,10 @@ public sealed partial class MainWindow : Window
 
     private async void NewEventButton_Click(object sender, RoutedEventArgs e)
     {
-        var result = await EventDialog.ShowCreateDialog(Content.XamlRoot, _currentDate);
+        // Promote date-only navigation state into a sensible time-aware draft so
+        // the toolbar action opens at a useful hour instead of 12:30 AM.
+        DateTime draftStart = DateTimeHelper.GetDefaultEventStart(_currentDate, DateTime.Now);
+        var result = await EventDialog.ShowCreateDialog(Content.XamlRoot, draftStart);
         if (result != null)
         {
             await App.Database.SaveEventAsync(result);

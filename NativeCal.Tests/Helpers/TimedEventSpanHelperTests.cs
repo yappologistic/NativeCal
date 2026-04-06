@@ -108,7 +108,7 @@ public class TimedEventSpanHelperTests
         string text = TimedEventSpanHelper.FormatSpanTimeRange(
             new DateTime(2026, 4, 15, 22, 0, 0),
             new DateTime(2026, 4, 17, 3, 30, 0),
-            System.Globalization.CultureInfo.InvariantCulture);
+            System.Globalization.CultureInfo.GetCultureInfo("en-US"));
 
         Assert.Equal("Wed 10:00 PM → Fri 3:30 AM", text);
     }
@@ -119,7 +119,7 @@ public class TimedEventSpanHelperTests
         string text = TimedEventSpanHelper.FormatSpanTimeRange(
             new DateTime(2026, 4, 15, 9, 0, 0),
             new DateTime(2026, 4, 15, 10, 30, 0),
-            System.Globalization.CultureInfo.InvariantCulture);
+            System.Globalization.CultureInfo.GetCultureInfo("en-US"));
 
         Assert.Equal("9:00 AM - 10:30 AM", text);
     }

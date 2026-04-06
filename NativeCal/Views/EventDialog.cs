@@ -277,8 +277,11 @@ public static class EventDialog
         var selectableCalendars = calendars
             .Where(c => !CalendarCatalogHelper.IsProtectedCalendar(c))
             .ToList();
+        int defaultReminderMinutes = await App.Database.GetDefaultReminderMinutesAsync();
 
-        // Determine initial date/time values
+        // Determine initial date/time values.
+        // Date-only defaults are normalized to a useful start time so the dialog
+        // does not open at 12:30 AM when launched from a day/week/month header.
         DateTime startTime;
         DateTime endTime;
         bool isAllDay = false;
@@ -291,12 +294,7 @@ public static class EventDialog
         }
         else
         {
-            startTime = defaultDate ?? DateTime.Now;
-            // Round to next 30-minute interval
-            int minutes = startTime.Minute;
-            int roundUp = (30 - (minutes % 30)) % 30;
-            if (roundUp == 0) roundUp = 30;
-            startTime = startTime.AddMinutes(roundUp).AddSeconds(-startTime.Second);
+            startTime = DateTimeHelper.GetDefaultEventStart(defaultDate, DateTime.Now);
             endTime = startTime.AddHours(1);
         }
 
@@ -525,7 +523,7 @@ public static class EventDialog
             {
                 selectedReminderIndex = i;
             }
-            else if (existing == null && ReminderOptions[i].Minutes == 15)
+            else if (existing == null && ReminderOptions[i].Minutes == defaultReminderMinutes)
             {
                 selectedReminderIndex = i;
             }

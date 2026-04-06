@@ -111,14 +111,16 @@ public sealed partial class DayViewPage : Page
             TimeGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(HourHeight) });
         }
 
-        // Add hour labels in column 0 and horizontal separator lines in column 1
+        // Add hour labels in column 0 and horizontal separator lines in column 1.
+        // Reuse the shared helper so the day view follows the active locale's
+        // 12/24-hour preference just like the week view.
+        List<string> hourLabels = DateTimeHelper.GetHourLabels();
         for (int hour = 0; hour < TotalHours; hour++)
         {
             // Hour label
-            string label = DateTime.Today.AddHours(hour).ToString("h tt", CultureInfo.InvariantCulture);
             var hourLabel = new TextBlock
             {
-                Text = label,
+                Text = hourLabels[hour],
                 FontSize = 12,
                 Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme),
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -753,7 +755,9 @@ public sealed partial class DayViewPage : Page
             StartTime = startTime,
             EndTime = endTime,
             IsAllDay = false,
-            ReminderMinutes = 15
+            // Respect the user's Settings → Default reminder choice when seeding
+            // a new event from an empty time slot.
+            ReminderMinutes = await App.Database.GetDefaultReminderMinutesAsync()
         };
 
         var createdEvent = await EventDialog.ShowCreateDialog(

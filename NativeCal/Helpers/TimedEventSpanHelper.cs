@@ -98,6 +98,10 @@ public static class TimedEventSpanHelper
             return DateTimeHelper.FormatTimeRange(startTime, endTime, isAllDay: false);
         }
 
-        return $"{startTime.ToString("ddd h:mm tt", culture)} → {endTime.ToString("ddd h:mm tt", culture)}";
+        // Format the weekday label and clock time separately so the time portion
+        // respects the user's short-time culture settings (12h vs 24h).
+        string startLabel = $"{startTime.ToString("ddd", culture)} {DateTimeHelper.FormatTime(startTime, culture)}";
+        string endLabel = $"{endTime.ToString("ddd", culture)} {DateTimeHelper.FormatTime(endTime, culture)}";
+        return $"{startLabel} → {endLabel}";
     }
 }
