@@ -6,8 +6,14 @@ using NativeCal.Models;
 
 namespace NativeCal.ViewModels;
 
+/// <summary>
+/// Observable wrapper around <see cref="CalendarEvent"/> for data-binding.
+/// Exposes computed properties (<see cref="TimeDisplay"/>, <see cref="TopOffset"/>,
+/// <see cref="Height"/>) that update when the underlying times change.
+/// </summary>
 public partial class CalendarEventViewModel : ObservableObject
 {
+    /// <summary>Pixels-per-minute scaling factor for computed <see cref="TopOffset"/> and <see cref="Height"/>.</summary>
     private const double PixelsPerMinute = 1.2;
 
     private CalendarEvent _event;
@@ -51,12 +57,19 @@ public partial class CalendarEventViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsOfficialHoliday { get; set; }
 
+    /// <summary>Formatted time range (e.g. "9:00 AM - 10:00 AM" or "All Day").</summary>
     public string TimeDisplay => DateTimeHelper.FormatTimeRange(StartTime, EndTime, IsAllDay);
 
+    /// <summary>Formatted full date (e.g. "Friday, April 5, 2026").</summary>
     public string DateDisplay => StartTime.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture);
 
+    /// <summary>Vertical offset in pixels from the top of a 24-hour grid.</summary>
     public double TopOffset => (StartTime.Hour * 60 + StartTime.Minute) * PixelsPerMinute;
 
+    /// <summary>
+    /// Computed height in pixels. All-day events use a fixed 24px chip;
+    /// timed events scale by duration with a minimum of 18px.
+    /// </summary>
     public double Height
     {
         get
@@ -72,12 +85,14 @@ public partial class CalendarEventViewModel : ObservableObject
         }
     }
 
+    /// <summary>Creates an empty view model backed by a default <see cref="CalendarEvent"/>.</summary>
     public CalendarEventViewModel()
     {
         _event = new CalendarEvent();
         Title = string.Empty;
     }
 
+    /// <summary>Wraps an existing <see cref="CalendarEvent"/> model for data-binding.</summary>
     public CalendarEventViewModel(CalendarEvent evt)
     {
         _event = evt ?? throw new ArgumentNullException(nameof(evt));
@@ -97,6 +112,11 @@ public partial class CalendarEventViewModel : ObservableObject
         IsOfficialHoliday = evt.IsOfficialHoliday;
     }
 
+    /// <summary>
+    /// Converts back to a <see cref="CalendarEvent"/> model for database persistence.
+    /// Preserves the original <see cref="CalendarEvent.CreatedAt"/> and sets
+    /// <see cref="CalendarEvent.ModifiedAt"/> to now.
+    /// </summary>
     public CalendarEvent ToModel()
     {
         return new CalendarEvent

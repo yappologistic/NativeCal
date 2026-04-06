@@ -5,10 +5,24 @@ using NativeCal.ViewModels;
 
 namespace NativeCal.Helpers;
 
+/// <summary>
+/// Describes where a timed event should be placed in a multi-column overlap layout.
+/// <see cref="ColumnIndex"/> is the 0-based column within the overlap cluster,
+/// and <see cref="TotalColumns"/> is the width of the cluster.
+/// </summary>
 public readonly record struct TimedEventPlacement(CalendarEventViewModel Event, int ColumnIndex, int TotalColumns);
 
+/// <summary>
+/// Calculates non-overlapping column assignments for timed events within a single day.
+/// Events that overlap in time are placed side-by-side in columns (like Google Calendar).
+/// </summary>
 public static class EventLayoutHelper
 {
+    /// <summary>
+    /// Groups overlapping events into clusters and assigns each event a column
+    /// within its cluster. Returns a list of <see cref="TimedEventPlacement"/> values
+    /// that the view uses to calculate left offset and width.
+    /// </summary>
     public static List<TimedEventPlacement> CalculateOverlapPlacements(IEnumerable<CalendarEventViewModel> sourceEvents)
     {
         var events = sourceEvents

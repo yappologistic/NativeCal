@@ -3,11 +3,23 @@ using NativeCal.Models;
 
 namespace NativeCal.Helpers;
 
+/// <summary>
+/// Pure helper functions for moving, resizing, and rounding calendar events.
+/// Used by drag-and-drop and resize interactions in Day, Week, and Month views.
+/// All methods return a new <see cref="CalendarEvent"/> clone — they never mutate the input.
+/// </summary>
 public static class CalendarEventMutationHelper
 {
+    /// <summary>Default snap increment in minutes (events snap to 15-minute boundaries).</summary>
     public const int DefaultIncrementMinutes = 15;
+
+    /// <summary>Minimum allowed event duration in minutes.</summary>
     public const int MinimumDurationMinutes = 15;
 
+    /// <summary>
+    /// Rounds a <see cref="DateTime"/> to the nearest <paramref name="incrementMinutes"/> boundary.
+    /// Clamps the result so it stays within the same day (00:00 – 23:45 for 15-min increments).
+    /// </summary>
     public static DateTime RoundToIncrement(DateTime value, int incrementMinutes = DefaultIncrementMinutes)
     {
         int totalMinutes = value.Hour * 60 + value.Minute;
@@ -16,6 +28,10 @@ public static class CalendarEventMutationHelper
         return value.Date.AddMinutes(roundedMinutes);
     }
 
+    /// <summary>
+    /// Moves a timed event to a new start time (snapped to the increment grid),
+    /// preserving the original duration. Enforces <see cref="MinimumDurationMinutes"/>.
+    /// </summary>
     public static CalendarEvent MoveTimedEvent(CalendarEvent evt, DateTime newStart, int incrementMinutes = DefaultIncrementMinutes)
     {
         var updated = evt.Clone();
@@ -29,6 +45,10 @@ public static class CalendarEventMutationHelper
         return updated;
     }
 
+    /// <summary>
+    /// Resizes an event by changing its end time (snapped to the increment grid).
+    /// The start time is unchanged. Enforces <see cref="MinimumDurationMinutes"/>.
+    /// </summary>
     public static CalendarEvent ResizeTimedEvent(CalendarEvent evt, DateTime newEnd, int incrementMinutes = DefaultIncrementMinutes)
     {
         var updated = evt.Clone();
@@ -41,6 +61,11 @@ public static class CalendarEventMutationHelper
         return updated;
     }
 
+    /// <summary>
+    /// Moves an event to a different date by shifting both start and end
+    /// by the same day-delta. Time-of-day and duration are preserved.
+    /// Used for drag-and-drop between day cells in the month view.
+    /// </summary>
     public static CalendarEvent MoveEventToDate(CalendarEvent evt, DateTime targetDate)
     {
         var updated = evt.Clone();
