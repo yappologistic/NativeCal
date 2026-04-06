@@ -515,12 +515,19 @@ public sealed partial class DayViewPage : Page
             if (!state.HasMoved)
                 return;
 
+            // proposedDateTime already carries the correct date (the viewed day)
+            // and the snapped time-of-day from the canvas Y position.
             DateTime proposedDateTime = GetDateTimeFromCanvasPoint(pointerPosition.Y);
 
             CalendarEvent updated = isResize
+                // Pass the proposed DateTime directly — it already has the
+                // correct date (the currently viewed day) and the snapped
+                // time. Using ResolveResizeTargetTimeOnOriginalEndDate here
+                // was buggy: for multi-day events it pasted the time-of-day
+                // onto the *original* end date, which grew the event when
+                // the user intended to shrink it.
                 ? CalendarEventMutationHelper.ResizeTimedEvent(
-                    state.Event.ToModel(),
-                    TimedEventSpanHelper.ResolveResizeTargetTimeOnOriginalEndDate(state.OriginalEnd, proposedDateTime))
+                    state.Event.ToModel(), proposedDateTime)
                 : CalendarEventMutationHelper.MoveTimedEvent(state.Event.ToModel(), proposedDateTime);
 
             _suppressEventTap = true;

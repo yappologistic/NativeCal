@@ -1,5 +1,6 @@
 using System;
 using NativeCal.Helpers;
+using NativeCal.Models;
 
 namespace NativeCal.Tests.Helpers;
 
@@ -123,13 +124,62 @@ public class TimedEventSpanHelperTests
         Assert.Equal("9:00 AM - 10:30 AM", text);
     }
 
+    /// <summary>
+    /// Regression: Simulates the exact DayViewPage resize path for a multi-day
+    /// event. The DayView canvas produces a DateTime on the *viewed day*, which
+    /// ResolveResizeTargetTimeOnOriginalEndDate then maps onto the original end
+    /// date. For a shrink gesture this creates a LONGER event instead of shorter.
+    ///
+    /// Example: Event Apr 5 22:00 → Apr 6 03:00 (5 hours). User views Apr 5,
+    /// drags resize handle UP to 23:00. Canvas yields Apr 5 23:00.
+    /// Old behavior: pastes 23:00 onto Apr 6 → EndTime = Apr 6 23:00 (25 hours!).
+    /// Correct behavior: EndTime should be Apr 5 23:00 (1 hour).
+    /// </summary>
     [Fact]
-    public void ResolveResizeTargetTimeOnOriginalEndDate_PreservesOriginalEndDateForMultiDayDayViewResize()
+    public void DayViewResize_ShrinkMultiDayEvent_MustNotGrowDuration()
     {
-        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetTimeOnOriginalEndDate(
-            new DateTime(2026, 4, 17, 2, 0, 0),
-            new DateTime(2026, 4, 15, 3, 30, 0));
+        // Multi-day event: Apr 5 22:00 → Apr 6 03:00
+        var evt = new CalendarEvent
+        {
+            Title = "Overnight",
+            StartTime = new DateTime(2026, 4, 5, 22, 0, 0),
+            EndTime = new DateTime(2026, 4, 6, 3, 0, 0),
+            CalendarId = 1
+        };
 
-        Assert.Equal(new DateTime(2026, 4, 17, 3, 30, 0), resolved);
+        // User views Apr 5 and drags the resize handle to y=23:00 on the canvas.
+        // The canvas produces proposedDateTime = Apr 5 23:00.
+        DateTime proposedFromCanvas = new DateTime(2026, 4, 5, 23, 0, 0);
+
+        // This is the new end time the user intends:
+        // they want the event to end at 23:00 on Apr 5 (same day).
+        CalendarEvent resized = CalendarEventMutationHelper.ResizeTimedEvent(evt, proposedFromCanvas);
+
+        // End should be on Apr 5, NOT on Apr 6
+        Assert.Equal(new DateTime(2026, 4, 5, 23, 0, 0), resized.EndTime);
+        Assert.True(resized.EndTime > resized.StartTime, "EndTime must be after StartTime");
+        Assert.True((resized.EndTime - resized.StartTime).TotalHours <= 5,
+            "Duration should not grow when shrinking");
+    }
+
+    /// <summary>
+    /// Documents that ResolveResizeTargetTimeOnOriginalEndDate produces wrong
+    /// results for multi-day events in DayView context. The DayViewPage no
+    /// longer calls this method for resize; it passes the canvas DateTime
+    /// directly to ResizeTimedEvent instead.
+    /// </summary>
+    [Fact]
+    public void ResolveResizeTargetTimeOnOriginalEndDate_KnownLimitation_ForMultiDayEvents()
+    {
+        // OriginalEnd is on Apr 6. Canvas pointer gives Apr 5 23:00.
+        // The helper pastes 23:00 onto Apr 6 → Apr 6 23:00.
+        // For DayView this is WRONG (grows the event), but the helper
+        // is still used correctly by other code paths where the proposed
+        // date IS on the original end date. Kept for documentation.
+        DateTime resolved = TimedEventSpanHelper.ResolveResizeTargetTimeOnOriginalEndDate(
+            new DateTime(2026, 4, 6, 3, 0, 0),  // originalEnd
+            new DateTime(2026, 4, 5, 23, 0, 0)); // proposed from canvas
+
+        Assert.Equal(new DateTime(2026, 4, 6, 23, 0, 0), resolved);
     }
 }
