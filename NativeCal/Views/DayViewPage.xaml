@@ -42,7 +42,7 @@
 
         <!-- Row 2: Scrollable hour timeline -->
         <ScrollViewer Grid.Row="2" x:Name="TimeScrollViewer" VerticalScrollBarVisibility="Auto">
-            <Grid x:Name="TimeGrid" ColumnDefinitions="50,*">
+            <Grid x:Name="TimeGrid" ColumnDefinitions="64,*">
                 <!-- Hour labels in Col 0 and event canvas in Col 1 built in code-behind -->
             </Grid>
         </ScrollViewer>

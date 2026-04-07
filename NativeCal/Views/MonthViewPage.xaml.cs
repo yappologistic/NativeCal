@@ -317,7 +317,7 @@ public sealed partial class MonthViewPage : Page
             _eventPanels[i].Children.Clear();
 
             int eventCount = cell.Events.Count;
-            int visibleCount = Math.Min(eventCount, MaxVisibleEvents);
+            int visibleCount = Math.Min(eventCount, GetVisibleEventLimit(_eventPanels[i].MaxWidth));
 
             for (int j = 0; j < visibleCount; j++)
             {
@@ -413,6 +413,19 @@ public sealed partial class MonthViewPage : Page
                 mainWindow.NavigateToDayView(clickedDate);
             }
         }
+    }
+
+    private static int GetVisibleEventLimit(double contentWidth)
+    {
+        // Narrow month cells become unreadable quickly with stacked chips, so
+        // scale the visible count with the actual constrained cell content width.
+        if (contentWidth < 96)
+            return 1;
+
+        if (contentWidth < 132)
+            return 2;
+
+        return MaxVisibleEvents;
     }
 
     private void MoreLabel_Click(object sender, RoutedEventArgs e)

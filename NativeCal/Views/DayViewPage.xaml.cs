@@ -20,6 +20,9 @@ namespace NativeCal.Views;
 public sealed partial class DayViewPage : Page
 {
     private const double HourHeight = 60.0;
+    private const double TimeGutterWidth = 64.0;
+    private const double HourLabelTopOffset = 7.0;
+    private const double InitialScrollPadding = 12.0;
     private const int TotalHours = 24;
     private Canvas _eventCanvas = null!;
     private readonly DispatcherTimer _timeIndicatorTimer;
@@ -126,7 +129,7 @@ public sealed partial class DayViewPage : Page
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Top,
                 Padding = new Thickness(0, 0, 8, 0),
-                Margin = new Thickness(0, -7, 0, 0) // Nudge up so the label sits on the line
+                Margin = new Thickness(0, -HourLabelTopOffset, 0, 0) // Nudge up so the label sits on the line
             };
             Grid.SetRow(hourLabel, hour);
             Grid.SetColumn(hourLabel, 0);
@@ -261,8 +264,8 @@ public sealed partial class DayViewPage : Page
         double canvasWidth = _eventCanvas.ActualWidth;
         if (canvasWidth <= 0)
         {
-            // Estimate: total width minus the hour gutter (60px)
-            canvasWidth = TimeGrid.ActualWidth - 60;
+            // Estimate: total width minus the hour gutter.
+            canvasWidth = TimeGrid.ActualWidth - TimeGutterWidth;
             if (canvasWidth <= 0)
                 canvasWidth = 400; // reasonable default
         }
@@ -306,10 +309,12 @@ public sealed partial class DayViewPage : Page
         var bgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(220, color.R, color.G, color.B));
         var textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex));
 
+        bool narrowBlock = width < 84;
+
         var titleBlock = new TextBlock
         {
             Text = evt.Title,
-            FontSize = 12,
+            FontSize = narrowBlock ? 11 : 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -319,7 +324,7 @@ public sealed partial class DayViewPage : Page
         var timeBlock = new TextBlock
         {
             Text = evt.TimeDisplay,
-            FontSize = 11,
+            FontSize = narrowBlock ? 10 : 11,
             Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1
@@ -347,10 +352,10 @@ public sealed partial class DayViewPage : Page
 
         var stack = new StackPanel
         {
-            Spacing = 1
+            Spacing = narrowBlock ? 0 : 1
         };
         stack.Children.Add(titleBlock);
-        if (height > 30)
+        if (height > 30 && width >= 96)
         {
             stack.Children.Add(timeBlock);
         }
@@ -376,7 +381,7 @@ public sealed partial class DayViewPage : Page
         {
             Background = bgBrush,
             CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 4, 8, 4),
+            Padding = narrowBlock ? new Thickness(6, 4, 6, 4) : new Thickness(8, 4, 8, 4),
             Width = width,
             Height = height,
             Tag = evt,
@@ -644,12 +649,12 @@ public sealed partial class DayViewPage : Page
             // Scroll so current hour is visible with some padding above
             int currentHour = DateTime.Now.Hour;
             int scrollHour = Math.Max(0, currentHour - 1);
-            scrollTarget = scrollHour * HourHeight;
+            scrollTarget = Math.Max(scrollHour * HourHeight - (HourLabelTopOffset + InitialScrollPadding), 0);
         }
         else
         {
             // Default to 8 AM
-            scrollTarget = 8 * HourHeight;
+            scrollTarget = Math.Max(8 * HourHeight - (HourLabelTopOffset + InitialScrollPadding), 0);
         }
 
         // Use DispatcherQueue to ensure layout has completed before scrolling

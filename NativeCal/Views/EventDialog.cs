@@ -303,7 +303,7 @@ public static class EventDialog
             Header = "Start date",
             Date = new DateTimeOffset(startTime.Date),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            MinWidth = 220
+            MinWidth = 160
         };
 
         var startTimePicker = new TimePicker
@@ -312,7 +312,7 @@ public static class EventDialog
             Time = startTime.TimeOfDay,
             MinuteIncrement = 5,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            MinWidth = 120
+            MinWidth = 96
         };
 
         var endDatePicker = new DatePicker
@@ -320,7 +320,7 @@ public static class EventDialog
             Header = "End date",
             Date = new DateTimeOffset(endTime.Date),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            MinWidth = 220
+            MinWidth = 160
         };
 
         var endTimePicker = new TimePicker
@@ -329,7 +329,7 @@ public static class EventDialog
             Time = endTime.TimeOfDay,
             MinuteIncrement = 5,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            MinWidth = 120
+            MinWidth = 96
         };
 
         // Non-all-day grid: 2 rows, 2 columns (date + time)
@@ -347,7 +347,7 @@ public static class EventDialog
             },
             ColumnSpacing = 12,
             RowSpacing = 8,
-            MinWidth = 360
+            MinWidth = 0
         };
 
         Grid.SetRow(startDatePicker, 0);
@@ -373,7 +373,7 @@ public static class EventDialog
                 new RowDefinition { Height = GridLength.Auto }
             },
             RowSpacing = 8,
-            MinWidth = 300
+            MinWidth = 0
         };
 
         var allDayStartDatePicker = new DatePicker
@@ -532,6 +532,15 @@ public static class EventDialog
             Spacing = 6
         };
 
+        var colorScroller = new ScrollViewer
+        {
+            Content = colorPanel,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Disabled
+        };
+
         string[] colorChoices = ColorHelper.CalendarColors;
         // Track which color border is selected
         Border? selectedColorBorder = null;
@@ -630,13 +639,14 @@ public static class EventDialog
 
         var colorSection = new StackPanel { Spacing = 0 };
         colorSection.Children.Add(colorHeader);
-        colorSection.Children.Add(colorPanel);
+        colorSection.Children.Add(colorScroller);
 
         // ── Assemble the content StackPanel ─────────────────────────────
         var contentPanel = new StackPanel
         {
             Spacing = 16,
-            MinWidth = 440
+            MinWidth = 320,
+            MaxWidth = 560
         };
 
         contentPanel.Children.Add(titleBox);

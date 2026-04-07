@@ -517,6 +517,15 @@ public sealed partial class SettingsPage : Page
             Spacing = 6
         };
 
+        var colorScroller = new ScrollViewer
+        {
+            Content = colorPanel,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Disabled
+        };
+
         string selectedColor = initialColor;
         Border? selectedBorder = null;
 
@@ -568,12 +577,13 @@ public sealed partial class SettingsPage : Page
         var contentPanel = new StackPanel
         {
             Spacing = 8,
-            MinWidth = 320
+            MinWidth = 280,
+            MaxWidth = 420
         };
         contentPanel.Children.Add(nameBox);
         contentPanel.Children.Add(reservedNameMessage);
         contentPanel.Children.Add(colorHeader);
-        contentPanel.Children.Add(colorPanel);
+        contentPanel.Children.Add(colorScroller);
 
         var dialog = new ContentDialog
         {

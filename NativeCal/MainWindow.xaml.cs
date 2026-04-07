@@ -148,20 +148,63 @@ public sealed partial class MainWindow : Window
 
     private void NavView_PaneOpening(NavigationView sender, object args)
     {
-        PaneColumn.Width = new GridLength(sender.OpenPaneLength);
+        PaneColumn.Width = new GridLength(GetPaneColumnWidth());
         PaneFooterPanel.Visibility = Visibility.Visible;
+        UpdatePaneFooterLayout();
     }
 
     private void NavView_PaneClosing(NavigationView sender, NavigationViewPaneClosingEventArgs args)
     {
         PaneColumn.Width = new GridLength(sender.CompactPaneLength);
         PaneFooterPanel.Visibility = Visibility.Collapsed;
+        SidebarCalendar.Visibility = Visibility.Collapsed;
     }
 
     private void UpdatePaneColumnWidth()
     {
-        double width = NavView.IsPaneOpen ? NavView.OpenPaneLength : NavView.CompactPaneLength;
-        PaneColumn.Width = new GridLength(width);
+        PaneColumn.Width = new GridLength(GetPaneColumnWidth());
+        UpdatePaneFooterLayout();
+    }
+
+    private double GetPaneColumnWidth()
+    {
+        if (!NavView.IsPaneOpen)
+        {
+            return NavView.CompactPaneLength;
+        }
+
+        return UseOverlayPaneLayout() ? NavView.CompactPaneLength : NavView.OpenPaneLength;
+    }
+
+    private bool UseOverlayPaneLayout()
+    {
+        double windowWidth = RootGrid.ActualWidth;
+        if (windowWidth <= 0)
+        {
+            windowWidth = PaneColumn.ActualWidth + ContentAreaGrid.ActualWidth;
+        }
+
+        return windowWidth > 0 && windowWidth < 680;
+    }
+
+    private void UpdatePaneFooterLayout()
+    {
+        if (!NavView.IsPaneOpen)
+        {
+            SidebarCalendar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        double windowWidth = RootGrid.ActualWidth;
+        if (windowWidth <= 0)
+        {
+            windowWidth = PaneColumn.ActualWidth + ContentAreaGrid.ActualWidth;
+        }
+
+        // The mini calendar becomes unreadable on the smallest supported widths,
+        // so collapse it and keep the calendar visibility list usable instead.
+        bool hideMiniCalendar = UseOverlayPaneLayout();
+        SidebarCalendar.Visibility = hideMiniCalendar ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void SizeAndCenterWindow(int width, int height)
@@ -490,15 +533,26 @@ public sealed partial class MainWindow : Window
             var nameBlock = new TextBlock
             {
                 Text = cal.Name,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 1
             };
 
-            var row = new StackPanel
+            // Use a Grid instead of a horizontal StackPanel so long calendar names
+            // can shrink and ellipsize inside the navigation pane.
+            var row = new Grid
             {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 2, 0, 2)
+                Margin = new Thickness(0, 2, 0, 2),
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition { Width = GridLength.Auto },
+                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 0 }
+                },
+                ColumnSpacing = 8
             };
 
+            Grid.SetColumn(colorIndicator, 0);
+            Grid.SetColumn(nameBlock, 1);
             row.Children.Add(colorIndicator);
             row.Children.Add(nameBlock);
 
@@ -650,14 +704,33 @@ public sealed partial class MainWindow : Window
         // Don't touch nav controls when on settings (they're already hidden)
         if (_currentViewTag == "settings") return;
 
-        // Compact: hide "New Event" text, show only icon
-        NewEventText.Visibility = width < 550 ? Visibility.Collapsed : Visibility.Visible;
+        bool compactHeader = width < 760;
+        bool narrowHeader = width < 620;
+        bool veryNarrowHeader = width < 500;
+
+        // Collapse labels before the shell reaches clipping pressure.
+        NewEventText.Visibility = compactHeader ? Visibility.Collapsed : Visibility.Visible;
+        NewEventContentPanel.Spacing = compactHeader ? 0 : 8;
 
         // Keep the Today action reachable on narrow windows by collapsing only
         // the label instead of removing the button entirely.
-        TodayButtonText.Visibility = width < 450 ? Visibility.Collapsed : Visibility.Visible;
+        TodayButtonText.Visibility = narrowHeader ? Visibility.Collapsed : Visibility.Visible;
+
+        // Tighten the toolbar chrome as width shrinks so the title column retains
+        // enough room to stay readable instead of competing with fixed button paddings.
+        HeaderBarGrid.Padding = veryNarrowHeader
+            ? new Thickness(8, 8, 0, 6)
+            : compactHeader
+                ? new Thickness(10, 10, 0, 7)
+                : new Thickness(12, 12, 0, 8);
+
+        TodayButton.Margin = compactHeader ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 8, 0);
+        NewEventButton.Padding = compactHeader ? new Thickness(10, 8, 10, 8) : new Thickness(10, 8, 10, 8);
+        NewEventButton.Width = compactHeader ? 40 : double.NaN;
 
         // Shrink caption button spacer at narrow widths (less wasted space)
-        CaptionButtonColumn.Width = new GridLength(width < 500 ? 46 : 140);
+        CaptionButtonColumn.Width = new GridLength(veryNarrowHeader ? 46 : compactHeader ? 92 : 140);
+
+        UpdatePaneFooterLayout();
     }
 }

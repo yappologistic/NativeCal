@@ -19,7 +19,7 @@
         <Grid Grid.Row="0" x:Name="DayHeadersGrid" Padding="0,8,0,4"
               BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="GutterCol0" Width="50" MinWidth="36"/>
+                <ColumnDefinition x:Name="GutterCol0" Width="64" MinWidth="48"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -36,7 +36,7 @@
         <Grid Grid.Row="1" x:Name="AllDayBarGrid" MinHeight="28" Padding="0,2,0,2"
               BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="50" MinWidth="36"/>
+                <ColumnDefinition Width="64" MinWidth="48"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -58,7 +58,7 @@
                       HorizontalScrollBarVisibility="Disabled">
             <Grid x:Name="TimeGrid">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="50" MinWidth="36"/>
+                    <ColumnDefinition Width="64" MinWidth="48"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>

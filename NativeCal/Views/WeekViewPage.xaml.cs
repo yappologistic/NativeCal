@@ -22,6 +22,9 @@ public sealed partial class WeekViewPage : Page
     public WeekViewModel ViewModel { get; } = new WeekViewModel();
 
     private const double HourHeight = 60.0;
+    private const double TimeGutterWidth = 64.0;
+    private const double HourLabelTopOffset = 7.0;
+    private const double InitialScrollPadding = 12.0;
     private const int HoursInDay = 24;
     private const int DaysInWeek = 7;
 
@@ -215,7 +218,7 @@ public sealed partial class WeekViewPage : Page
                 Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, top - 7, 8, 0) // offset upward so label sits at the gridline
+                Margin = new Thickness(0, top - HourLabelTopOffset, 8, 0) // offset upward so label sits at the gridline
             };
             Grid.SetColumn(label, 0);
             TimeGrid.Children.Add(label);
@@ -550,10 +553,12 @@ public sealed partial class WeekViewPage : Page
         try { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex)); }
         catch { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(ColorHelper.CalendarColors[0])); }
 
+        bool narrowBlock = width < 72;
+
         var titleText = new TextBlock
         {
             Text = evt.Title,
-            FontSize = 12,
+            FontSize = narrowBlock ? 11 : 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -563,7 +568,7 @@ public sealed partial class WeekViewPage : Page
         var timeText = new TextBlock
         {
             Text = evt.TimeDisplay,
-            FontSize = 10,
+            FontSize = narrowBlock ? 9 : 10,
             Foreground = textBrush,
             Opacity = 0.85,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -591,11 +596,11 @@ public sealed partial class WeekViewPage : Page
 
         var content = new StackPanel
         {
-            Spacing = 1
+            Spacing = narrowBlock ? 0 : 1
         };
         content.Children.Add(titleText);
 
-        if (blockHeight >= 36)
+        if (blockHeight >= 36 && width >= 88)
         {
             content.Children.Add(timeText);
         }
@@ -620,7 +625,7 @@ public sealed partial class WeekViewPage : Page
         {
             CornerRadius = new CornerRadius(4),
             Background = bgBrush,
-            Padding = new Thickness(6, 4, 6, 4),
+            Padding = narrowBlock ? new Thickness(4, 3, 4, 3) : new Thickness(6, 4, 6, 4),
             Margin = new Thickness(2, 0, 2, 0),
             Height = blockHeight,
             Width = Math.Max(width, 20),
@@ -679,7 +684,7 @@ public sealed partial class WeekViewPage : Page
         if (targetHour < 7)
             targetHour = 7;
 
-        double offset = targetHour * HourHeight;
+        double offset = Math.Max(targetHour * HourHeight - (HourLabelTopOffset + InitialScrollPadding), 0);
         TimeScrollViewer.ChangeView(null, offset, null, disableAnimation: false);
     }
 
@@ -943,7 +948,7 @@ public sealed partial class WeekViewPage : Page
         if (_dayCanvases[dayIndex].ActualWidth > 0)
             return _dayCanvases[dayIndex].ActualWidth;
 
-        double availableWidth = Math.Max(TimeGrid.ActualWidth - 50, 0);
+        double availableWidth = Math.Max(TimeGrid.ActualWidth - TimeGutterWidth, 0);
         return availableWidth > 0 ? availableWidth / DaysInWeek : 140;
     }
 
