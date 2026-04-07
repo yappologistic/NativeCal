@@ -184,6 +184,7 @@
                     Style="{StaticResource AccentButtonStyle}"
                     VerticalAlignment="Center"
                     MinWidth="0"
+                    MinHeight="0"
                     Padding="10,8"
                     ToolTipService.ToolTip="New Event">
                     <StackPanel x:Name="NewEventContentPanel" Orientation="Horizontal" Spacing="8">

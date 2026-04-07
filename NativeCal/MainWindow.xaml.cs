@@ -19,6 +19,8 @@ namespace NativeCal;
 
 public sealed partial class MainWindow : Window
 {
+    private const double CaptionButtonWidthDips = 128;
+
     public static MainWindow? CurrentInstance { get; private set; }
 
     [DllImport("user32.dll")]
@@ -126,22 +128,9 @@ public sealed partial class MainWindow : Window
 
     private void UpdateCaptionButtonWidth()
     {
-        var hwnd = WindowNative.GetWindowHandle(this);
-        uint dpi = GetDpiForWindow(hwnd);
-        double scale = dpi / 96.0;
-
-        // Windows 11 caption buttons are ~138 DIPs wide (3 buttons × 46 DIPs).
-        // Scale to physical, then use as the spacer.
-        double captionWidthDips = 140;
-        if (scale > 1.0)
-        {
-            // Already in DIPs — DPI-aware apps get correct measurement
-            CaptionButtonColumn.Width = new GridLength(captionWidthDips);
-        }
-        else
-        {
-            CaptionButtonColumn.Width = new GridLength(captionWidthDips);
-        }
+        // Use a fixed caption reservation during startup. It is less exact than
+        // querying the native titlebar inset, but avoids early-window crashes.
+        CaptionButtonColumn.Width = new GridLength(CaptionButtonWidthDips);
     }
 
     // ── Pane column width sync ──────────────────────────────────────────
@@ -707,6 +696,7 @@ public sealed partial class MainWindow : Window
         bool compactHeader = width < 760;
         bool narrowHeader = width < 620;
         bool veryNarrowHeader = width < 500;
+        bool minimumHeader = width < 440;
 
         // Collapse labels before the shell reaches clipping pressure.
         NewEventText.Visibility = compactHeader ? Visibility.Collapsed : Visibility.Visible;
@@ -715,21 +705,42 @@ public sealed partial class MainWindow : Window
         // Keep the Today action reachable on narrow windows by collapsing only
         // the label instead of removing the button entirely.
         TodayButtonText.Visibility = narrowHeader ? Visibility.Collapsed : Visibility.Visible;
+        TodayButton.Visibility = minimumHeader ? Visibility.Collapsed : Visibility.Visible;
 
         // Tighten the toolbar chrome as width shrinks so the title column retains
         // enough room to stay readable instead of competing with fixed button paddings.
-        HeaderBarGrid.Padding = veryNarrowHeader
+        HeaderBarGrid.Padding = minimumHeader
+            ? new Thickness(6, 8, 0, 6)
+            : veryNarrowHeader
             ? new Thickness(8, 8, 0, 6)
             : compactHeader
                 ? new Thickness(10, 10, 0, 7)
                 : new Thickness(12, 12, 0, 8);
 
+        BackButton.Padding = minimumHeader ? new Thickness(4) : new Thickness(6);
+        ForwardButton.Padding = minimumHeader ? new Thickness(4) : new Thickness(6);
+        ForwardButton.Margin = minimumHeader ? new Thickness(0, 0, 2, 0) : compactHeader ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 8, 0);
         TodayButton.Margin = compactHeader ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 8, 0);
-        NewEventButton.Padding = compactHeader ? new Thickness(10, 8, 10, 8) : new Thickness(10, 8, 10, 8);
-        NewEventButton.Width = compactHeader ? 40 : double.NaN;
+        NewEventButton.Padding = compactHeader ? new Thickness(0) : new Thickness(10, 8, 10, 8);
+        NewEventButton.Width = minimumHeader ? 36 : compactHeader ? 40 : double.NaN;
+        NewEventButton.Height = minimumHeader ? 36 : compactHeader ? 40 : double.NaN;
 
-        // Shrink caption button spacer at narrow widths (less wasted space)
-        CaptionButtonColumn.Width = new GridLength(veryNarrowHeader ? 46 : compactHeader ? 92 : 140);
+        if (minimumHeader)
+        {
+            HeaderTitle.FontSize = 28;
+        }
+        else if (veryNarrowHeader)
+        {
+            HeaderTitle.FontSize = 34;
+        }
+        else
+        {
+            HeaderTitle.ClearValue(TextBlock.FontSizeProperty);
+        }
+
+        // Keep a stable caption-button reservation so the system chrome never
+        // overlaps app controls at minimum widths.
+        CaptionButtonColumn.Width = new GridLength(CaptionButtonWidthDips);
 
         UpdatePaneFooterLayout();
     }
