@@ -122,18 +122,30 @@ public class DatabaseServiceEdgeCaseTests : TestBase
     }
 
     [Fact]
-    public async Task SaveEventAsync_EndBeforeStart_StillPersists()
+    public async Task SaveEventAsync_EndBeforeStart_Throws()
     {
-        // This tests whether the database allows inverted times
         var evt = CreateEvent(
             start: new DateTime(2026, 4, 5, 10, 0, 0),
             end: new DateTime(2026, 4, 5, 9, 0, 0));
 
-        await Db.SaveEventAsync(evt);
+        await Assert.ThrowsAsync<ArgumentException>(() => Db.SaveEventAsync(evt));
+    }
 
-        var fetched = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
-        // The DB stores whatever we give it; validation is the app's responsibility
-        Assert.True(fetched.EndTime < fetched.StartTime);
+    [Fact]
+    public async Task SaveEventAsync_RejectsMissingCalendar()
+    {
+        var evt = CreateEvent(calendarId: 999999);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Db.SaveEventAsync(evt));
+    }
+
+    [Fact]
+    public async Task SaveEventAsync_RejectsUnsupportedReminderMinutes()
+    {
+        var evt = CreateEvent();
+        evt.ReminderMinutes = 999;
+
+        await Assert.ThrowsAsync<ArgumentException>(() => Db.SaveEventAsync(evt));
     }
 
     [Fact]

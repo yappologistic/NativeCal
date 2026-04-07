@@ -28,16 +28,6 @@ public sealed partial class SettingsPage : Page
     /// </summary>
     private bool _isLoading = true;
 
-    private static readonly (string Label, int Minutes)[] ReminderOptions =
-    {
-        ("None", 0),
-        ("5 minutes", 5),
-        ("10 minutes", 10),
-        ("15 minutes", 15),
-        ("30 minutes", 30),
-        ("1 hour", 60)
-    };
-
     private static readonly (string Label, int Value)[] FirstDayOptions =
     {
         ("Sunday", 0),
@@ -48,6 +38,23 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         this.InitializeComponent();
+        PopulateReminderOptions();
+    }
+
+    private void PopulateReminderOptions()
+    {
+        // Rebuild the picker from the shared catalog so Settings always matches
+        // the event dialog and the persistence-layer validation rules.
+        ReminderComboBox.Items.Clear();
+
+        foreach (var option in ReminderOptionCatalog.Options)
+        {
+            ReminderComboBox.Items.Add(new ComboBoxItem
+            {
+                Content = option.Label,
+                Tag = option.Minutes
+            });
+        }
     }
 
     /// <summary>
@@ -115,20 +122,11 @@ public sealed partial class SettingsPage : Page
             string reminderValue = await App.Database.GetSettingAsync(DefaultReminderKey, "15");
             if (int.TryParse(reminderValue, out int reminderMinutes))
             {
-                int matchIndex = 3; // default to 15 minutes
-                for (int i = 0; i < ReminderOptions.Length; i++)
-                {
-                    if (ReminderOptions[i].Minutes == reminderMinutes)
-                    {
-                        matchIndex = i;
-                        break;
-                    }
-                }
-                ReminderComboBox.SelectedIndex = matchIndex;
+                ReminderComboBox.SelectedIndex = ReminderOptionCatalog.GetSelectedIndexOrDefault(reminderMinutes);
             }
             else
             {
-                ReminderComboBox.SelectedIndex = 3;
+                ReminderComboBox.SelectedIndex = ReminderOptionCatalog.GetSelectedIndexOrDefault(15);
             }
 
             // Version
@@ -205,9 +203,9 @@ public sealed partial class SettingsPage : Page
         if (_isLoading) return;
 
         int selectedIndex = ReminderComboBox.SelectedIndex;
-        if (selectedIndex >= 0 && selectedIndex < ReminderOptions.Length)
+        if (selectedIndex >= 0 && selectedIndex < ReminderOptionCatalog.Options.Length)
         {
-            int minutes = ReminderOptions[selectedIndex].Minutes;
+            int minutes = ReminderOptionCatalog.Options[selectedIndex].Minutes;
             await App.Database.SetSettingAsync(DefaultReminderKey, minutes.ToString());
         }
     }

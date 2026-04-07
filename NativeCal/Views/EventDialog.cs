@@ -27,28 +27,6 @@ public static class EventDialog
         public CalendarEvent? Event { get; init; }
     }
 
-    private static readonly (string Label, int Minutes)[] ReminderOptions =
-    {
-        ("None", 0),
-        ("5 minutes", 5),
-        ("10 minutes", 10),
-        ("15 minutes", 15),
-        ("30 minutes", 30),
-        ("1 hour", 60),
-        ("2 hours", 120),
-        ("1 day", 1440)
-    };
-
-    private static readonly (string Label, RecurrenceType Type)[] RecurrenceOptions =
-    {
-        ("Does not repeat", RecurrenceType.None),
-        ("Daily", RecurrenceType.Daily),
-        ("Weekly", RecurrenceType.Weekly),
-        ("Biweekly", RecurrenceType.Biweekly),
-        ("Monthly", RecurrenceType.Monthly),
-        ("Yearly", RecurrenceType.Yearly)
-    };
-
     /// <summary>
     /// Shows dialog for creating a new event.
     /// </summary>
@@ -278,6 +256,9 @@ public static class EventDialog
             .Where(c => !CalendarCatalogHelper.IsProtectedCalendar(c))
             .ToList();
         int defaultReminderMinutes = await App.Database.GetDefaultReminderMinutesAsync();
+        string? preservedRecurrenceRule = string.IsNullOrWhiteSpace(existing?.RecurrenceRule)
+            ? null
+            : existing.RecurrenceRule;
 
         // Determine initial date/time values.
         // Date-only defaults are normalized to a useful start time so the dialog
@@ -516,55 +497,26 @@ public static class EventDialog
         };
 
         int selectedReminderIndex = 0;
-        for (int i = 0; i < ReminderOptions.Length; i++)
+        int reminderToSelect = existing?.ReminderMinutes ?? defaultReminderMinutes;
+        for (int i = 0; i < ReminderOptionCatalog.Options.Length; i++)
         {
-            reminderCombo.Items.Add(ReminderOptions[i].Label);
-            if (existing != null && ReminderOptions[i].Minutes == existing.ReminderMinutes)
-            {
-                selectedReminderIndex = i;
-            }
-            else if (existing == null && ReminderOptions[i].Minutes == defaultReminderMinutes)
-            {
-                selectedReminderIndex = i;
-            }
+            reminderCombo.Items.Add(ReminderOptionCatalog.Options[i].Label);
         }
+        selectedReminderIndex = ReminderOptionCatalog.GetSelectedIndexOrDefault(reminderToSelect);
 
         reminderCombo.SelectedIndex = selectedReminderIndex;
 
-        // ── Recurrence selector ─────────────────────────────────────────
-        // NOTE: Recurrence is saved as a label but not yet expanded — events
-        // with a recurrence rule still behave as single-occurrence events.
-        // The picker is visible so users can tag intent, but a clear
-        // "(preview)" suffix on each option signals the limitation.
-        var recurrenceCombo = new ComboBox
+        // Hide new recurrence selection until the app can actually expand recurring
+        // events. If an older row already has a recurrence rule, preserve it on save
+        // so editing title/location/etc. does not silently erase stored data.
+        var recurrenceNotice = new TextBlock
         {
-            Header = "Repeat",
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            Text = preservedRecurrenceRule is null
+                ? "Recurring events are temporarily unavailable until full support lands."
+                : $"Repeat: {preservedRecurrenceRule} (existing recurrence is preserved but not yet active)",
+            TextWrapping = TextWrapping.Wrap,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
         };
-
-        int selectedRecurrenceIndex = 0;
-        RecurrenceType existingRecurrence = RecurrenceType.None;
-
-        if (existing != null && !string.IsNullOrEmpty(existing.RecurrenceRule))
-        {
-            Enum.TryParse(existing.RecurrenceRule, out existingRecurrence);
-        }
-
-        for (int i = 0; i < RecurrenceOptions.Length; i++)
-        {
-            // Append "(preview)" to non-None options to indicate recurrence
-            // expansion is not yet implemented. Users can still set intent.
-            string label = RecurrenceOptions[i].Type == RecurrenceType.None
-                ? RecurrenceOptions[i].Label
-                : $"{RecurrenceOptions[i].Label} (preview)";
-            recurrenceCombo.Items.Add(label);
-            if (RecurrenceOptions[i].Type == existingRecurrence)
-            {
-                selectedRecurrenceIndex = i;
-            }
-        }
-
-        recurrenceCombo.SelectedIndex = selectedRecurrenceIndex;
 
         // ── Color override ──────────────────────────────────────────────
         var colorHeader = new TextBlock
@@ -695,7 +647,7 @@ public static class EventDialog
         contentPanel.Children.Add(descriptionBox);
         contentPanel.Children.Add(calendarCombo);
         contentPanel.Children.Add(reminderCombo);
-        contentPanel.Children.Add(recurrenceCombo);
+        contentPanel.Children.Add(recurrenceNotice);
         contentPanel.Children.Add(colorSection);
 
         var scrollViewer = new ScrollViewer
@@ -781,15 +733,9 @@ public static class EventDialog
             }
 
             int reminderMinutes = 15;
-            if (reminderCombo.SelectedIndex >= 0 && reminderCombo.SelectedIndex < ReminderOptions.Length)
+            if (reminderCombo.SelectedIndex >= 0 && reminderCombo.SelectedIndex < ReminderOptionCatalog.Options.Length)
             {
-                reminderMinutes = ReminderOptions[reminderCombo.SelectedIndex].Minutes;
-            }
-
-            RecurrenceType recurrence = RecurrenceType.None;
-            if (recurrenceCombo.SelectedIndex >= 0 && recurrenceCombo.SelectedIndex < RecurrenceOptions.Length)
-            {
-                recurrence = RecurrenceOptions[recurrenceCombo.SelectedIndex].Type;
+                reminderMinutes = ReminderOptionCatalog.Options[reminderCombo.SelectedIndex].Minutes;
             }
 
             return new CalendarEvent
@@ -802,7 +748,7 @@ public static class EventDialog
                 IsAllDay = resultAllDay,
                 CalendarId = calendarId,
                 ColorHex = selectedColorHex,
-                RecurrenceRule = recurrence == RecurrenceType.None ? null : recurrence.ToString(),
+                RecurrenceRule = preservedRecurrenceRule,
                 ReminderMinutes = reminderMinutes,
                 ModifiedAt = DateTime.UtcNow
             };

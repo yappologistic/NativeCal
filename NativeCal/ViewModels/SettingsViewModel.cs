@@ -65,7 +65,9 @@ public partial class SettingsViewModel : ObservableObject
             string reminderValue = await App.Database.GetSettingAsync(DefaultReminderKey, "15");
             if (int.TryParse(reminderValue, out int reminderMinutes))
             {
-                DefaultReminderMinutes = Math.Max(0, reminderMinutes);
+                // Keep the view model aligned with the actual reminder picker options
+                // so unsupported values do not drift back into storage later.
+                DefaultReminderMinutes = ReminderOptionCatalog.NormalizeMinutes(reminderMinutes);
             }
 
             string firstDayValue = await App.Database.GetSettingAsync(FirstDayOfWeekKey, "0");
@@ -131,7 +133,7 @@ public partial class SettingsViewModel : ObservableObject
     private async Task SaveSettings()
     {
         await App.Database.SetSettingAsync(ThemeSettingKey, SelectedThemeIndex.ToString());
-        await App.Database.SetSettingAsync(DefaultReminderKey, DefaultReminderMinutes.ToString());
+        await App.Database.SetSettingAsync(DefaultReminderKey, ReminderOptionCatalog.NormalizeMinutes(DefaultReminderMinutes).ToString());
         await App.Database.SetSettingAsync(FirstDayOfWeekKey, FirstDayOfWeekIndex.ToString());
     }
 }

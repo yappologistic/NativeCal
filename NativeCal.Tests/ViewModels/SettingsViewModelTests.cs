@@ -19,7 +19,7 @@ public class SettingsViewModelTests : TestBase
         await viewModel.LoadSettingsCommand.ExecuteAsync(null);
 
         Assert.Equal(2, viewModel.SelectedThemeIndex);
-        Assert.Equal(0, viewModel.DefaultReminderMinutes);
+        Assert.Equal(15, viewModel.DefaultReminderMinutes);
         Assert.Equal(6, viewModel.FirstDayOfWeekIndex);
         Assert.Equal(5, viewModel.Calendars.Count);
     }
@@ -62,8 +62,22 @@ public class SettingsViewModelTests : TestBase
         await viewModel.SaveSettingsCommand.ExecuteAsync(null);
 
         Assert.Equal("1", await Db.GetSettingAsync("Theme", "0"));
-        Assert.Equal("45", await Db.GetSettingAsync("DefaultReminderMinutes", "15"));
+        Assert.Equal("15", await Db.GetSettingAsync("DefaultReminderMinutes", "15"));
         Assert.Equal("6", await Db.GetSettingAsync("FirstDayOfWeek", "0"));
+    }
+
+    [Theory]
+    [InlineData(120)]
+    [InlineData(1440)]
+    public async Task LoadSettingsCommand_PreservesExtendedReminderOptions(int reminderMinutes)
+    {
+        await Db.SetSettingAsync("DefaultReminderMinutes", reminderMinutes.ToString());
+
+        var viewModel = new SettingsViewModel();
+
+        await viewModel.LoadSettingsCommand.ExecuteAsync(null);
+
+        Assert.Equal(reminderMinutes, viewModel.DefaultReminderMinutes);
     }
 
     [Fact]

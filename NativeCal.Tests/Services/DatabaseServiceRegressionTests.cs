@@ -228,4 +228,27 @@ public class DatabaseServiceRegressionTests : TestBase
         Assert.Single(remaining, c => c.IsDefault);
         Assert.DoesNotContain(remaining, c => c.Id == defaultCalendar.Id);
     }
+
+    [Fact]
+    public async Task DeleteCalendarAsync_DeletesDefaultCalendarEventsAtomically()
+    {
+        var defaultCalendar = Assert.Single(await Db.GetCalendarsAsync(), c => c.IsDefault);
+
+        await Db.SaveEventAsync(new CalendarEvent
+        {
+            Title = "Default calendar event",
+            StartTime = new DateTime(2026, 4, 5, 9, 0, 0),
+            EndTime = new DateTime(2026, 4, 5, 10, 0, 0),
+            CalendarId = defaultCalendar.Id
+        });
+
+        await Db.DeleteCalendarAsync(defaultCalendar.Id);
+
+        var remainingCalendars = await Db.GetCalendarsAsync();
+        var orphanedEvents = await Db.GetEventsByCalendarAsync(defaultCalendar.Id);
+
+        Assert.DoesNotContain(remainingCalendars, c => c.Id == defaultCalendar.Id);
+        Assert.Single(remainingCalendars, c => c.IsDefault);
+        Assert.Empty(orphanedEvents);
+    }
 }

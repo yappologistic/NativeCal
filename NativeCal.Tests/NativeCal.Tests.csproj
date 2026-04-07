@@ -31,6 +31,7 @@
     <Compile Include="..\NativeCal\Helpers\CalendarEventMutationHelper.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\Helpers\DateTimeHelper.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\Helpers\EventLayoutHelper.cs" LinkBase="Helpers" />
+    <Compile Include="..\NativeCal\Helpers\ReminderOptionCatalog.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\Helpers\TimedEventSpanHelper.cs" LinkBase="Helpers" />
     <Compile Include="..\NativeCal\ViewModels\AgendaViewModel.cs" LinkBase="ViewModels" />
     <Compile Include="..\NativeCal\ViewModels\CalendarEventViewModel.cs" LinkBase="ViewModels" />

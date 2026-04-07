@@ -11,8 +11,6 @@ namespace NativeCal.Services
 {
     public class DatabaseService
     {
-        // Keep this list aligned with the reminder choices shown in EventDialog.
-        private static readonly HashSet<int> AllowedReminderMinutes = new() { 0, 5, 10, 15, 30, 60, 120, 1440 };
         private SQLiteAsyncConnection _db = null!;
         private readonly string _dbPath;
 
@@ -161,6 +159,7 @@ namespace NativeCal.Services
         /// </summary>
         public async Task<int> SaveEventAsync(CalendarEvent evt)
         {
+            await ValidateEventAsync(evt);
             evt.ModifiedAt = DateTime.UtcNow;
 
             if (evt.Id > 0)
@@ -179,6 +178,43 @@ namespace NativeCal.Services
             evt.CreatedAt = DateTime.UtcNow;
             await _db.InsertAsync(evt);
             return evt.Id; // populated by AutoIncrement after insert
+        }
+
+        private async Task ValidateEventAsync(CalendarEvent evt)
+        {
+            ArgumentNullException.ThrowIfNull(evt);
+
+            evt.Title = evt.Title?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(evt.Title))
+            {
+                throw new ArgumentException("Event title is required.", nameof(evt));
+            }
+
+            if (evt.EndTime < evt.StartTime)
+            {
+                throw new ArgumentException("Event end time cannot be earlier than its start time.", nameof(evt));
+            }
+
+            if (!ReminderOptionCatalog.IsSupported(evt.ReminderMinutes))
+            {
+                throw new ArgumentException("Reminder minutes value is not supported.", nameof(evt));
+            }
+
+            // Validate against the real calendar row so service callers cannot
+            // create orphaned events or write into read-only holiday calendars.
+            var calendar = await _db.Table<CalendarInfo>()
+                .Where(c => c.Id == evt.CalendarId)
+                .FirstOrDefaultAsync();
+
+            if (calendar is null)
+            {
+                throw new InvalidOperationException($"Calendar {evt.CalendarId} does not exist.");
+            }
+
+            if (CalendarCatalogHelper.IsProtectedCalendar(calendar))
+            {
+                throw new InvalidOperationException("Events cannot be saved into read-only holiday calendars.");
+            }
         }
 
         /// <summary>
@@ -303,47 +339,53 @@ namespace NativeCal.Services
         /// </summary>
         public async Task DeleteCalendarAsync(int id)
         {
-            var calendars = (await _db.Table<CalendarInfo>().ToListAsync())
-                .OrderBy(c => c.Id)
-                .ToList();
-
-            var calendarToDelete = calendars.FirstOrDefault(c => c.Id == id);
-            if (calendarToDelete is null)
-                return;
-
-            // Holiday calendars are read-only and cannot be removed.
-            if (CalendarCatalogHelper.IsProtectedCalendar(calendarToDelete))
-                return;
-
-            // Ensure at least one non-protected (user-writable) calendar
-            // remains after this deletion. Without a writable calendar the
-            // user cannot create new events.
-            var nonProtected = calendars
-                .Where(c => !CalendarCatalogHelper.IsProtectedCalendar(c))
-                .ToList();
-            if (nonProtected.Count <= 1)
-                return;
-
-            var remainingCalendars = calendars
-                .Where(c => c.Id != id)
-                .OrderBy(c => c.Id)
-                .ToList();
-
-            // If the deleted calendar was the default and no other default
-            // exists, promote the first remaining non-protected calendar.
-            if (calendarToDelete.IsDefault && !remainingCalendars.Any(c => c.IsDefault))
+            // Keep default promotion and row deletion in a single SQLite transaction
+            // so a mid-operation failure cannot leave partial calendar state behind.
+            await _db.RunInTransactionAsync(conn =>
             {
-                var replacementDefault = remainingCalendars
-                    .FirstOrDefault(c => !CalendarCatalogHelper.IsProtectedCalendar(c));
-                if (replacementDefault is not null)
-                {
-                    replacementDefault.IsDefault = true;
-                    await _db.UpdateAsync(replacementDefault);
-                }
-            }
+                var calendars = conn.Table<CalendarInfo>()
+                    .ToList()
+                    .OrderBy(c => c.Id)
+                    .ToList();
 
-            await _db.ExecuteAsync("DELETE FROM CalendarEvents WHERE CalendarId = ?", id);
-            await _db.DeleteAsync<CalendarInfo>(id);
+                var calendarToDelete = calendars.FirstOrDefault(c => c.Id == id);
+                if (calendarToDelete is null)
+                    return;
+
+                // Holiday calendars are read-only and cannot be removed.
+                if (CalendarCatalogHelper.IsProtectedCalendar(calendarToDelete))
+                    return;
+
+                // Ensure at least one non-protected (user-writable) calendar
+                // remains after this deletion. Without a writable calendar the
+                // user cannot create new events.
+                var nonProtected = calendars
+                    .Where(c => !CalendarCatalogHelper.IsProtectedCalendar(c))
+                    .ToList();
+                if (nonProtected.Count <= 1)
+                    return;
+
+                var remainingCalendars = calendars
+                    .Where(c => c.Id != id)
+                    .OrderBy(c => c.Id)
+                    .ToList();
+
+                // If the deleted calendar was the default and no other default
+                // exists, promote the first remaining non-protected calendar.
+                if (calendarToDelete.IsDefault && !remainingCalendars.Any(c => c.IsDefault))
+                {
+                    var replacementDefault = remainingCalendars
+                        .FirstOrDefault(c => !CalendarCatalogHelper.IsProtectedCalendar(c));
+                    if (replacementDefault is not null)
+                    {
+                        replacementDefault.IsDefault = true;
+                        conn.Update(replacementDefault);
+                    }
+                }
+
+                conn.Execute("DELETE FROM CalendarEvents WHERE CalendarId = ?", id);
+                conn.Delete<CalendarInfo>(id);
+            });
         }
 
         // ── Settings ─────────────────────────────────────────────────────
@@ -367,8 +409,8 @@ namespace NativeCal.Services
         public async Task<int> GetDefaultReminderMinutesAsync()
         {
             string storedValue = await GetSettingAsync("DefaultReminderMinutes", "15");
-            return int.TryParse(storedValue, out int minutes) && AllowedReminderMinutes.Contains(minutes)
-                ? minutes
+            return int.TryParse(storedValue, out int minutes)
+                ? ReminderOptionCatalog.NormalizeMinutes(minutes)
                 : 15;
         }
 
