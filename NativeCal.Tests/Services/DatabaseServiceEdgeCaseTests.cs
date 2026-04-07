@@ -48,6 +48,21 @@ public class DatabaseServiceEdgeCaseTests : TestBase
     }
 
     [Fact]
+    public async Task SaveEventAsync_NormalizedAllDayEventStillAppearsOnFinalDay()
+    {
+        await Db.SaveEventAsync(CreateEvent(
+            title: "Expo",
+            start: new DateTime(2026, 4, 3, 11, 0, 0),
+            end: new DateTime(2026, 4, 5, 0, 0, 0),
+            isAllDay: true));
+
+        Assert.Single(await Db.GetEventsForDateAsync(new DateTime(2026, 4, 3)), e => e.Title == "Expo");
+        Assert.Single(await Db.GetEventsForDateAsync(new DateTime(2026, 4, 4)), e => e.Title == "Expo");
+        Assert.Single(await Db.GetEventsForDateAsync(new DateTime(2026, 4, 5)), e => e.Title == "Expo");
+        Assert.Empty(await Db.GetEventsForDateAsync(new DateTime(2026, 4, 6)));
+    }
+
+    [Fact]
     public async Task GetEventsAsync_MultipleCalendars_EventsSeparated()
     {
         var calendars = await Db.GetCalendarsAsync();

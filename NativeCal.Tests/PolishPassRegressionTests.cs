@@ -118,9 +118,9 @@ public class PolishPassRegressionTests : TestBase
             new DateTime(2026, 12, 25), new DateTime(2026, 12, 26), calendars);
 
         var holiday = Assert.Single(events);
-        // EndTime should be midnight of the holiday date (not 23:59:59)
-        Assert.Equal(new DateTime(2026, 12, 25, 0, 0, 0), holiday.EndTime);
-        Assert.Equal(TimeSpan.Zero, holiday.EndTime.TimeOfDay);
+        // EndTime should now use the inclusive end-of-day contract used for new
+        // all-day event saves so holidays and user events stay aligned.
+        Assert.Equal(new DateTime(2026, 12, 25, 23, 59, 59, 999).AddTicks(9999), holiday.EndTime);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -129,28 +129,31 @@ public class PolishPassRegressionTests : TestBase
     // ════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task GetEventsForDateAsync_SingleDayAllDayEvent_MidnightEnd_AppearsOnDay()
+    public async Task GetEventsForDateAsync_SingleDayAllDayEvent_IsNormalizedAndAppearsOnDay()
     {
-        // User creates a single-day all-day event:
-        // StartTime = Apr 5 00:00, EndTime = Apr 5 00:00 (midnight convention)
-        await Db.SaveEventAsync(new CalendarEvent
+        var evt = new CalendarEvent
         {
             Title = "Conference",
             StartTime = new DateTime(2026, 4, 5, 0, 0, 0),
             EndTime = new DateTime(2026, 4, 5, 0, 0, 0),
             IsAllDay = true,
             CalendarId = 1
-        });
+        };
+
+        await Db.SaveEventAsync(evt);
 
         var events = await Db.GetEventsForDateAsync(new DateTime(2026, 4, 5));
         Assert.Single(events, e => e.Title == "Conference");
+
+        var saved = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
+        Assert.Equal(new DateTime(2026, 4, 5, 23, 59, 59, 999).AddTicks(9999), saved.EndTime);
     }
 
     [Fact]
     public async Task GetEventsForDateAsync_MultiDayAllDayEvent_MidnightEnd_AppearsOnAllDays()
     {
-        // User creates a 3-day all-day event: Apr 3 to Apr 5
-        // StartTime = Apr 3 00:00, EndTime = Apr 5 00:00 (midnight convention)
+        // User creates a 3-day all-day event: Apr 3 to Apr 5. Save normalization
+        // should preserve the intended inclusive date span.
         await Db.SaveEventAsync(new CalendarEvent
         {
             Title = "Team Retreat",

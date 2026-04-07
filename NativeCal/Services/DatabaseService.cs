@@ -160,6 +160,7 @@ namespace NativeCal.Services
         public async Task<int> SaveEventAsync(CalendarEvent evt)
         {
             await ValidateEventAsync(evt);
+            NormalizeAllDayEvent(evt);
             evt.ModifiedAt = DateTime.UtcNow;
 
             if (evt.Id > 0)
@@ -215,6 +216,22 @@ namespace NativeCal.Services
             {
                 throw new InvalidOperationException("Events cannot be saved into read-only holiday calendars.");
             }
+        }
+
+        private static void NormalizeAllDayEvent(CalendarEvent evt)
+        {
+            if (!evt.IsAllDay)
+                return;
+
+            evt.StartTime = evt.StartTime.Date;
+
+            // Persist all-day events with an inclusive end-of-day boundary so
+            // new rows match the current query/display contract while older
+            // midnight-ended rows continue to read correctly.
+            DateTime normalizedEndDate = evt.EndTime.Date < evt.StartTime.Date
+                ? evt.StartTime.Date
+                : evt.EndTime.Date;
+            evt.EndTime = normalizedEndDate.AddDays(1).AddTicks(-1);
         }
 
         /// <summary>

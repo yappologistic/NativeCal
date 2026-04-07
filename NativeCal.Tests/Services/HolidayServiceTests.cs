@@ -41,11 +41,11 @@ public class HolidayServiceTests
 
     /// <summary>
     /// Verifies that holiday events use the same EndTime convention as
-    /// user-created all-day events (midnight of the holiday date).
+    /// user-created all-day events (inclusive end of the holiday date).
     /// This ensures consistent behavior across all query and display code.
     /// </summary>
     [Fact]
-    public async Task GetHolidayEventsAsync_EndTimeUsesConsistentMidnightConvention()
+    public async Task GetHolidayEventsAsync_EndTimeUsesConsistentInclusiveEndOfDayConvention()
     {
         var service = new HolidayService((year, countryCode) => Task.FromResult<IReadOnlyList<HolidayService.HolidayRecord>>(
             new[]
@@ -67,12 +67,12 @@ public class HolidayServiceTests
         var holiday = Assert.Single(
             await service.GetHolidayEventsAsync(new DateTime(2026, 7, 4), new DateTime(2026, 7, 5), calendars));
 
-        // StartTime and EndTime should both be midnight of the holiday date,
-        // matching the convention EventDialog uses for single-day all-day events.
+        // StartTime should be midnight and EndTime should be the inclusive last
+        // tick of the holiday date so holiday rows match new all-day saves.
         Assert.Equal(new DateTime(2026, 7, 4), holiday.StartTime);
-        Assert.Equal(new DateTime(2026, 7, 4), holiday.EndTime);
+        Assert.Equal(new DateTime(2026, 7, 4, 23, 59, 59, 999).AddTicks(9999), holiday.EndTime);
         Assert.Equal(TimeSpan.Zero, holiday.StartTime.TimeOfDay);
-        Assert.Equal(TimeSpan.Zero, holiday.EndTime.TimeOfDay);
+        Assert.Equal(new DateTime(2026, 7, 4, 23, 59, 59, 999).AddTicks(9999).TimeOfDay, holiday.EndTime.TimeOfDay);
     }
 
     [Fact]

@@ -25,6 +25,25 @@ public class DatabaseServiceRegressionTests : TestBase
     }
 
     [Fact]
+    public async Task SaveEventAsync_NormalizesNewAllDayEventsToInclusiveEndOfDay()
+    {
+        var evt = new CalendarEvent
+        {
+            Title = "Retreat",
+            StartTime = new DateTime(2026, 4, 3, 15, 30, 0),
+            EndTime = new DateTime(2026, 4, 5, 0, 0, 0),
+            IsAllDay = true,
+            CalendarId = 1
+        };
+
+        await Db.SaveEventAsync(evt);
+
+        var saved = Assert.IsType<CalendarEvent>(await Db.GetEventAsync(evt.Id));
+        Assert.Equal(new DateTime(2026, 4, 3, 0, 0, 0), saved.StartTime);
+        Assert.Equal(new DateTime(2026, 4, 5, 23, 59, 59, 999).AddTicks(9999), saved.EndTime);
+    }
+
+    [Fact]
     public async Task GetEventsAsync_ReturnsEmptyForReversedRange()
     {
         await Db.SaveEventAsync(new CalendarEvent
