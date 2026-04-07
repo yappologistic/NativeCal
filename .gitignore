@@ -21,7 +21,11 @@ NativeCal/xaml_stderr.txt
 # Local planning / agent state
 context.md
 .pi/
+.planning/
 artifacts/
 
 # Local tool/cache state
 ~/
+
+# Local crash capture
+nativecal-crash.txt
