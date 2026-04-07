@@ -215,13 +215,14 @@ public sealed partial class DayViewPage : Page
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? ColorHelper.CalendarColors[0];
         var brush = ColorHelper.ToBrush(colorHex);
+        var textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex));
 
         var titleBlock = new TextBlock
         {
             Text = evt.Title,
             FontSize = 13,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Colors.White),
+            Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1
         };
@@ -303,13 +304,14 @@ public sealed partial class DayViewPage : Page
             ?? ColorHelper.CalendarColors[0];
         var color = ColorHelper.FromHex(colorHex);
         var bgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(220, color.R, color.G, color.B));
+        var textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex));
 
         var titleBlock = new TextBlock
         {
             Text = evt.Title,
             FontSize = 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Colors.White),
+            Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1
         };
@@ -318,7 +320,7 @@ public sealed partial class DayViewPage : Page
         {
             Text = evt.TimeDisplay,
             FontSize = 11,
-            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(200, 255, 255, 255)),
+            Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1
         };

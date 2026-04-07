@@ -391,15 +391,19 @@ public sealed partial class WeekViewPage : Page
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
+        SolidColorBrush textBrush;
         try { bgBrush = ColorHelper.ToBrush(colorHex); }
         catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }
+
+        try { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex)); }
+        catch { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(ColorHelper.CalendarColors[0])); }
 
         var titleText = new TextBlock
         {
             Text = evt.Title,
             FontSize = 11,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Foreground = textBrush,
             MaxLines = 1
         };
 
@@ -441,15 +445,19 @@ public sealed partial class WeekViewPage : Page
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
+        SolidColorBrush textBrush;
         try { bgBrush = ColorHelper.ToBrush(colorHex); }
         catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }
+
+        try { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex)); }
+        catch { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(ColorHelper.CalendarColors[0])); }
 
         var titleText = new TextBlock
         {
             Text = evt.Title,
             FontSize = 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1
         };
@@ -458,7 +466,7 @@ public sealed partial class WeekViewPage : Page
         {
             Text = TimedEventSpanHelper.FormatSpanTimeRange(evt.StartTime, evt.EndTime, CultureInfo.CurrentCulture),
             FontSize = 11,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Foreground = textBrush,
             Opacity = 0.8,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1,
@@ -535,15 +543,19 @@ public sealed partial class WeekViewPage : Page
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
+        SolidColorBrush textBrush;
         try { bgBrush = ColorHelper.ToBrush(colorHex); }
         catch { bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]); }
+
+        try { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex)); }
+        catch { textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(ColorHelper.CalendarColors[0])); }
 
         var titleText = new TextBlock
         {
             Text = evt.Title,
             FontSize = 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Foreground = textBrush,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1
         };
@@ -552,7 +564,7 @@ public sealed partial class WeekViewPage : Page
         {
             Text = evt.TimeDisplay,
             FontSize = 10,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Foreground = textBrush,
             Opacity = 0.85,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1

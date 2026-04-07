@@ -25,7 +25,7 @@ public sealed partial class MonthViewPage : Page
     private readonly TextBlock[] _dayNumbers = new TextBlock[TotalCells];
     private readonly Border[] _todayCircles = new Border[TotalCells];
     private readonly StackPanel[] _eventPanels = new StackPanel[TotalCells];
-    private readonly TextBlock[] _moreLabels = new TextBlock[TotalCells];
+    private readonly HyperlinkButton[] _moreLabels = new HyperlinkButton[TotalCells];
 
     // Track which date each cell represents so click handlers work
     private readonly DateTime[] _cellDates = new DateTime[TotalCells];
@@ -197,13 +197,16 @@ public sealed partial class MonthViewPage : Page
             _eventPanels[i] = eventPanel;
 
             // "+N more" label
-            var moreLabel = new TextBlock
+            var moreLabel = new HyperlinkButton
             {
                 FontSize = 10,
-                Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme),
                 Margin = new Thickness(4, 0, 0, 0),
-                Visibility = Visibility.Collapsed
+                Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Visibility = Visibility.Collapsed,
+                Tag = i
             };
+            moreLabel.Click += MoreLabel_Click;
             _moreLabels[i] = moreLabel;
 
             // Cell container
@@ -226,7 +229,9 @@ public sealed partial class MonthViewPage : Page
                 Child = cellContent,
                 Tag = i // store index so we can retrieve it on click
             };
-            cellBorder.PointerPressed += CellBorder_PointerPressed;
+            // Tapped is less trigger-happy than PointerPressed and better matches
+            // the "open this day" intent for a calendar cell.
+            cellBorder.Tapped += CellBorder_Tapped;
             _cellBorders[i] = cellBorder;
 
             Grid.SetRow(cellBorder, row);
@@ -306,7 +311,7 @@ public sealed partial class MonthViewPage : Page
             }
 
             // -- "+N more" label foreground (theme-aware) --
-            _moreLabels[i].Foreground = ThemeResourceHelper.GetBrush("TextFillColorSecondaryBrush", theme);
+            _moreLabels[i].Foreground = ThemeResourceHelper.GetBrush("AccentFillColorDefaultBrush", theme);
 
             // -- Event chips --
             _eventPanels[i].Children.Clear();
@@ -324,7 +329,7 @@ public sealed partial class MonthViewPage : Page
             if (eventCount > MaxVisibleEvents)
             {
                 int remaining = eventCount - MaxVisibleEvents;
-                _moreLabels[i].Text = $"+{remaining} more";
+                _moreLabels[i].Content = $"+{remaining} more";
                 _moreLabels[i].Visibility = Visibility.Visible;
             }
             else
@@ -343,13 +348,16 @@ public sealed partial class MonthViewPage : Page
             ?? App.MainAppWindow?.GetEventDisplayColorHex(evt.CalendarId, evt.ColorHex)
             ?? ColorHelper.CalendarColors[0];
         SolidColorBrush bgBrush;
+        SolidColorBrush textBrush;
         try
         {
             bgBrush = ColorHelper.ToBrush(colorHex);
+            textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(colorHex));
         }
         catch
         {
             bgBrush = ColorHelper.ToBrush(ColorHelper.CalendarColors[0]);
+            textBrush = ColorHelper.ToBrush(ColorContrastHelper.ResolveTextColorHex(ColorHelper.CalendarColors[0]));
         }
 
         var titleText = new TextBlock
@@ -358,7 +366,7 @@ public sealed partial class MonthViewPage : Page
             FontSize = 11,
             TextTrimming = TextTrimming.CharacterEllipsis,
             TextWrapping = TextWrapping.NoWrap,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Foreground = textBrush,
             MaxLines = 1
         };
 
@@ -390,7 +398,7 @@ public sealed partial class MonthViewPage : Page
     /// <summary>
     /// Handles click on a day cell - navigates to the day view for that date.
     /// </summary>
-    private void CellBorder_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private void CellBorder_Tapped(object sender, TappedRoutedEventArgs e)
     {
         if (IsEventChipInteractionSource(e.OriginalSource as DependencyObject))
             return;
@@ -404,6 +412,19 @@ public sealed partial class MonthViewPage : Page
             {
                 mainWindow.NavigateToDayView(clickedDate);
             }
+        }
+    }
+
+    private void MoreLabel_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not HyperlinkButton button || button.Tag is not int index || index < 0 || index >= TotalCells)
+            return;
+
+        if (App.MainAppWindow is MainWindow mainWindow)
+        {
+            // Route dense-day overflow to day view so hidden events are still
+            // one click away without needing an additional popup surface.
+            mainWindow.NavigateToDayView(_cellDates[index]);
         }
     }
 

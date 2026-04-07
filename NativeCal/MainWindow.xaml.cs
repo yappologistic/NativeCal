@@ -653,8 +653,9 @@ public sealed partial class MainWindow : Window
         // Compact: hide "New Event" text, show only icon
         NewEventText.Visibility = width < 550 ? Visibility.Collapsed : Visibility.Visible;
 
-        // Very narrow: collapse Today button text to save space
-        TodayButton.Visibility = width < 450 ? Visibility.Collapsed : Visibility.Visible;
+        // Keep the Today action reachable on narrow windows by collapsing only
+        // the label instead of removing the button entirely.
+        TodayButtonText.Visibility = width < 450 ? Visibility.Collapsed : Visibility.Visible;
 
         // Shrink caption button spacer at narrow widths (less wasted space)
         CaptionButtonColumn.Width = new GridLength(width < 500 ? 46 : 140);
